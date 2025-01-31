@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'pages/auth_page.dart';
 import 'pages/main_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(); // Make sure you have Firebase setup
+  await dotenv.load();
+  await Firebase.initializeApp();
   runApp(MyApp());
 }
 
@@ -25,7 +27,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-/// Decides which page to show based on authentication state.
 class MainWrapper extends StatelessWidget {
   const MainWrapper({super.key});
 
@@ -40,10 +41,8 @@ class MainWrapper extends StatelessWidget {
           );
         }
         if (snapshot.hasData) {
-          // User is logged in
           return MainPage();
         } else {
-          // Not logged in
           return AuthPage();
         }
       },

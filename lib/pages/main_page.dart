@@ -5,25 +5,22 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'profile_filter_page.dart';
 
-/// Represents data for one day's bar for a ticker,
-/// combining "today" and "yesterday" to compute changes.
 class StockData {
   final String symbol;
   final String name;
 
-  /// For the current day (the "today" date):
-  double currentPrice;   // from "c" (close) field
-  double openPrice;      // from "o"
-  double highPrice;      // from "h"
-  double lowPrice;       // from "l"
-  int volume;            // from "v"
+  double currentPrice;
+  double openPrice;
+  double highPrice;
+  double lowPrice;
+  int volume;
 
-  /// Changes vs. the previous day:
-  double absoluteChange; // (todayClose - yesterdayClose)
-  double percentChange;  // (absChange / yesterdayClose) * 100
+  double absoluteChange;
+  double percentChange;
 
   StockData({
     required this.symbol,
@@ -56,25 +53,16 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
-  // We'll do 2 calls: one for "today" and one for "yesterday"
-  // (Use actual dynamic date logic in production, if desired)
-  final String _dateToFetch = '2025-01-24';      // "today"
-  final String _prevDateToFetch = '2025-01-23'; // "yesterday"
+  late String _dateToFetch;
+  late String _prevDateToFetch;
 
-  // TODO: For production, do NOT hardcode the Polygon API key directly here.
-  //       Use secure storage or env variables instead.
-  final String _polygonApiKey = 'VuAp8k6bioJUIuflawofK1jbfA0U1V9s';
+  final String _polygonApiKey = dotenv.env['POLYGON_API_KEY'] ?? '';
 
-  // If you have thousands of tickers, storing them all can be big
-  // We'll store the final combined data in _symbolCache
   final Map<String, StockData> _symbolCache = {};
   List<StockData> _allStocks = [];
 
-  // The user's chosen "ticker" stocks (displayed in the horizontal scroller).
-  // We'll keep these persisted in Firestore under each user's UID.
   List<StockData> _tickerStocks = [];
 
-  // Ticker-only filter preferences
   bool _tickerShowSymbol         = true;
   bool _tickerShowName           = true;
   bool _tickerShowPrice          = true;
@@ -92,17 +80,19 @@ class _MainPageState extends State<MainPage> {
   void initState() {
     super.initState();
 
-    // 1) Fetch the stock data from Polygon.
-    // 2) Then load the user's saved ticker selection from Firestore.
-    // 3) Once loaded, combine them so the user sees up-to-date data plus
-    //    whichever stocks they previously selected.
+    DateTime today = DateTime.now();
+
+    DateTime yesterday = today.subtract(Duration(days: 1));
+
+    _dateToFetch = _formatDate(today);
+    _prevDateToFetch = _formatDate(yesterday);
+
     _fetchTwoDaysData().then((_) async {
       await _loadUserTickerSymbols();
       await _loadUserFilterPreferences();
     });
   }
 
-  /// We won't do auto-refresh for grouped data, but you could if desired
   @override
   void dispose() {
     super.dispose();
@@ -127,7 +117,6 @@ class _MainPageState extends State<MainPage> {
       final data = docSnap.data();
       if (data == null) return;
 
-      // Check if the doc contains filterPreferences
       final prefs = data['filterPreferences'];
       if (prefs is Map<String, dynamic>) {
         setState(() {
@@ -147,14 +136,18 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
-  /// Fetch data for "today" and "yesterday" from Polygon, then combine
+  String _formatDate(DateTime date) {
+    return "${date.year}-${_twoDigits(date.month)}-${_twoDigits(date.day)}";
+  }
+
+  String _twoDigits(int n) => n.toString().padLeft(2, '0');
+
   Future<void> _fetchTwoDaysData() async {
     setState(() => _isLoading = true);
 
     final Map<String, StockData> todayMap = await _fetchGroupedForDate(_dateToFetch);
     final Map<String, StockData> prevMap  = await _fetchGroupedForDate(_prevDateToFetch);
 
-    // Combine
     for (final symbol in todayMap.keys) {
       final todayData     = todayMap[symbol]!;
       final yesterdayData = prevMap[symbol];
@@ -186,9 +179,6 @@ class _MainPageState extends State<MainPage> {
     setState(() => _isLoading = false);
   }
 
-  /// Fetch all symbols from Polygon's "grouped daily" endpoint for [dateStr].
-  /// Return a Map of symbol -> StockData for that day only
-  /// (with 0 for absChange/pctChange).
   Future<Map<String, StockData>> _fetchGroupedForDate(String dateStr) async {
     final Map<String, StockData> map = {};
 
@@ -215,9 +205,6 @@ class _MainPageState extends State<MainPage> {
 
             final stock = StockData(
               symbol: symbol,
-              // For now, just store the symbol in 'name' as well;
-              // in a real production scenario, you might have a separate
-              // lookup table or external API for the real company name.
               name:   symbol,
               currentPrice:   close,
               openPrice:      open,
@@ -242,13 +229,10 @@ class _MainPageState extends State<MainPage> {
     return map;
   }
 
-  /// Rebuilds the master list from _symbolCache
   void _rebuildAllStocksFromCache() {
     setState(() {
       _allStocks = _symbolCache.values.toList()
         ..sort((a, b) => a.symbol.compareTo(b.symbol));
-      // Also refresh any references in ticker if needed.
-      // This ensures if data was updated, the ticker sees the new data.
       _tickerStocks = _tickerStocks
           .map((t) => _symbolCache[t.symbol] ?? t)
           .toList();
@@ -259,12 +243,9 @@ class _MainPageState extends State<MainPage> {
   //                          FIRESTORE PERSISTENCE
   //============================================================================
 
-  /// Load the user's previously selected ticker symbols from Firestore,
-  /// and rebuild our in-memory [_tickerStocks].
   Future<void> _loadUserTickerSymbols() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      // Not logged in; do nothing.
       return;
     }
 
@@ -297,12 +278,9 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
-  /// Save the user's currently selected ticker symbols to Firestore.
-  /// This will store them under "users/{user.uid}" with a field: selectedTickerSymbols.
   Future<void> _saveUserTickerSymbols() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      // Not logged in; do nothing.
       return;
     }
 
@@ -324,7 +302,6 @@ class _MainPageState extends State<MainPage> {
   //                          UI / FILTERING
   //============================================================================
 
-  /// Filter the main list by search text
   List<StockData> _filterStocks(String query) {
     if (query.isEmpty) return _allStocks;
     final lower = query.toLowerCase();
@@ -334,7 +311,6 @@ class _MainPageState extends State<MainPage> {
     }).toList();
   }
 
-  /// Toggle star icon -> add/remove from ticker
   void _toggleStockInTicker(StockData stock) {
     setState(() {
       if (_tickerStocks.contains(stock)) {
@@ -343,11 +319,9 @@ class _MainPageState extends State<MainPage> {
         _tickerStocks.add(stock);
       }
     });
-    // Persist the new selection in Firestore.
     _saveUserTickerSymbols();
   }
 
-  /// Navigate to profile & filter page
   Future<void> _gotoProfileFilters() async {
     final result = await Navigator.push(
       context,
@@ -390,43 +364,39 @@ class _MainPageState extends State<MainPage> {
     final filtered = _filterStocks(_searchController.text);
 
     return Scaffold(
-      // -- NO TITLE, replaced with a row that has search bar + settings icon
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        // We'll use a Row in place of the usual title
         title: SizedBox(
           height: 40,
           child: TextField(
             controller: _searchController,
-            // Removing "Find" button; auto-filter as user types
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
               hintText: 'Search symbol...',
               prefixIcon: const Icon(Icons.search),
               filled: true,
-              fillColor: Colors.grey[200], // Use a light grey background
+              fillColor: Colors.grey[200],
               contentPadding: const EdgeInsets.symmetric(horizontal: 8),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide:
-                BorderSide(color: Colors.grey[400]!, width: 1), // Light border
+                BorderSide(color: Colors.grey[400]!, width: 1),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide:
-                BorderSide(color: Colors.grey[400]!, width: 1), // Light border
+                BorderSide(color: Colors.grey[400]!, width: 1),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide:
-                const BorderSide(color: Colors.blue, width: 1.5), // Thicker border
+                const BorderSide(color: Colors.blue, width: 1.5),
               ),
             ),
           ),
         ),
         actions: [
-          // SETTINGS ICON
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.black),
             onPressed: _gotoProfileFilters,
@@ -435,11 +405,8 @@ class _MainPageState extends State<MainPage> {
       ),
       body: Column(
         children: [
-          //===== Progress indicator if loading =====
           if (_isLoading) const LinearProgressIndicator(),
 
-          //===== HORIZONTAL TICKER =====
-          // Single-line scroll of "cards"
           SizedBox(
             height: 165,
             child: _tickerStocks.isEmpty
@@ -454,7 +421,6 @@ class _MainPageState extends State<MainPage> {
             ),
           ),
 
-          //===== MAIN LIST =====
           Expanded(
             child: filtered.isEmpty
                 ? const Center(child: Text('No stocks found.'))
@@ -475,9 +441,6 @@ class _MainPageState extends State<MainPage> {
   //                           WIDGET BUILDERS
   //============================================================================
 
-  /// Builds each ticker item as a horizontally scrollable "card":
-  /// Transparent background, gray border, name+symbol+price on left,
-  /// plus optional fields on the right, as toggles allow.
   Widget _buildTickerStockCard(StockData stock) {
     final color = (stock.absoluteChange >= 0) ? Colors.green : Colors.red;
     final graphImage = (stock.absoluteChange >= 0)
@@ -509,11 +472,9 @@ class _MainPageState extends State<MainPage> {
       width: 300,
       child: Stack(
         children: [
-          // Main content
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Stock name, symbol, and price
               if (_tickerShowName)
                 Text(
                   stock.name,
@@ -533,7 +494,6 @@ class _MainPageState extends State<MainPage> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-              // Gain/loss information
               Row(
                 children: [
                   if (_tickerShowAbsoluteChange)
@@ -554,7 +514,6 @@ class _MainPageState extends State<MainPage> {
             ],
           ),
 
-          // Bottom-right details
           Positioned(
             bottom: 8,
             right: 8,
@@ -581,12 +540,11 @@ class _MainPageState extends State<MainPage> {
             ),
           ),
 
-          // Top-right gain/loss icon
           Positioned(
             top: 8,
             right: 8,
             child: Container(
-              height: 48, // size of the square box
+              height: 48,
               width: 48,
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -623,7 +581,7 @@ class _MainPageState extends State<MainPage> {
         return GestureDetector(
           onTap: () {
             setState(() {
-              isExpanded = !isExpanded; // Toggle expanded state
+              isExpanded = !isExpanded;
             });
           },
           child: Card(
@@ -635,13 +593,11 @@ class _MainPageState extends State<MainPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Main collapsed view
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Symbol & Name
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -662,7 +618,6 @@ class _MainPageState extends State<MainPage> {
                           ),
                         ],
                       ),
-                      // Price & changes
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
@@ -693,7 +648,6 @@ class _MainPageState extends State<MainPage> {
                     ],
                   ),
                 ),
-                // Expanded view
                 if (isExpanded)
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -701,7 +655,6 @@ class _MainPageState extends State<MainPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Left column with text
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -742,7 +695,6 @@ class _MainPageState extends State<MainPage> {
                             ),
                           ],
                         ),
-                        // Right column with star icon
                         Align(
                           alignment: Alignment.bottomRight,
                           child: IconButton(
