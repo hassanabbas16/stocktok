@@ -22,7 +22,7 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.green,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: MainWrapper(),
+      home: const MainWrapper(),
     );
   }
 }
@@ -41,9 +41,9 @@ class MainWrapper extends StatelessWidget {
           );
         }
         if (snapshot.hasData) {
-          return MainPage();
+          return const MainPage();
         } else {
-          return AuthPage();
+          return const AuthPage();
         }
       },
     );

@@ -82,7 +82,7 @@ class _MainPageState extends State<MainPage> {
 
     DateTime today = DateTime.now();
 
-    DateTime yesterday = today.subtract(Duration(days: 1));
+    DateTime yesterday = today.subtract(const Duration(days: 1));
 
     _dateToFetch = _formatDate(today);
     _prevDateToFetch = _formatDate(yesterday);
