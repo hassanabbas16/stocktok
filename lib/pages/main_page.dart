@@ -37,16 +37,17 @@ class StockData {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-          other is StockData &&
-              runtimeType == other.runtimeType &&
-              symbol == other.symbol;
+          other is StockData && runtimeType == other.runtimeType && symbol == other.symbol;
 
   @override
   int get hashCode => symbol.hashCode;
 }
 
 class MainPage extends StatefulWidget {
-  const MainPage({Key? key}) : super(key: key);
+  /// Callback to send overlay data from this screen
+  final Future<void> Function(String jsonData)? onSendOverlayData;
+
+  const MainPage({Key? key, this.onSendOverlayData}) : super(key: key);
 
   @override
   _MainPageState createState() => _MainPageState();
@@ -60,7 +61,6 @@ class _MainPageState extends State<MainPage> {
 
   final Map<String, StockData> _symbolCache = {};
   List<StockData> _allStocks = [];
-
   List<StockData> _tickerStocks = [];
 
   bool _tickerShowSymbol         = true;
@@ -79,63 +79,26 @@ class _MainPageState extends State<MainPage> {
   @override
   void initState() {
     super.initState();
+    final DateTime today = DateTime.now();
+    final DateTime yesterday = today.subtract(const Duration(days: 1));
 
-    DateTime today = DateTime.now();
+    DateTime prevDate = today.subtract(const Duration(days: 1));
 
-    DateTime yesterday = today.subtract(const Duration(days: 1));
+    DateTime prevPrevDate = prevDate.subtract(const Duration(days: 1));
 
-    _dateToFetch = _formatDate(today);
-    _prevDateToFetch = _formatDate(yesterday);
+    _dateToFetch = _formatDate(prevDate);
+    _prevDateToFetch = _formatDate(prevPrevDate);
+
 
     _fetchTwoDaysData().then((_) async {
       await _loadUserTickerSymbols();
       await _loadUserFilterPreferences();
+      // After loading everything, let's push current ticker data to overlay
+      _sendTickerToOverlay();
     });
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
-  //============================================================================
-  //                           FETCHING LOGIC
-  //============================================================================
-
-  Future<void> _loadUserFilterPreferences() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    try {
-      final docSnap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-
-      if (!docSnap.exists) return;
-
-      final data = docSnap.data();
-      if (data == null) return;
-
-      final prefs = data['filterPreferences'];
-      if (prefs is Map<String, dynamic>) {
-        setState(() {
-          _tickerShowSymbol         = prefs['showSymbol']        ?? _tickerShowSymbol;
-          _tickerShowName           = prefs['showName']          ?? _tickerShowName;
-          _tickerShowPrice          = prefs['showPrice']         ?? _tickerShowPrice;
-          _tickerShowPercentChange  = prefs['showPercentChange'] ?? _tickerShowPercentChange;
-          _tickerShowAbsoluteChange = prefs['showAbsoluteChange']?? _tickerShowAbsoluteChange;
-          _tickerShowVolume         = prefs['showVolume']        ?? _tickerShowVolume;
-          _tickerShowOpeningPrice   = prefs['showOpeningPrice']  ?? _tickerShowOpeningPrice;
-          _tickerShowDailyHighLow   = prefs['showDailyHighLow']  ?? _tickerShowDailyHighLow;
-          _separator                = prefs['separator']         ?? _separator;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error loading filter preferences: $e');
-    }
-  }
-
+  //============================== FETCH LOGIC ===============================
   String _formatDate(DateTime date) {
     return "${date.year}-${_twoDigits(date.month)}-${_twoDigits(date.day)}";
   }
@@ -143,17 +106,17 @@ class _MainPageState extends State<MainPage> {
   String _twoDigits(int n) => n.toString().padLeft(2, '0');
 
   Future<void> _fetchTwoDaysData() async {
-    setState(() => _isLoading = true);
+    if (!mounted) return;
+    setState(() => _isLoading = false);
 
-    final Map<String, StockData> todayMap = await _fetchGroupedForDate(_dateToFetch);
-    final Map<String, StockData> prevMap  = await _fetchGroupedForDate(_prevDateToFetch);
+    final todayMap = await _fetchGroupedForDate(_dateToFetch);
+    final prevMap  = await _fetchGroupedForDate(_prevDateToFetch);
 
     for (final symbol in todayMap.keys) {
       final todayData     = todayMap[symbol]!;
       final yesterdayData = prevMap[symbol];
-
       final yesterdayClose = yesterdayData?.currentPrice ?? 0;
-      final absChange      = todayData.currentPrice - yesterdayClose;
+      final absChange     = todayData.currentPrice - yesterdayClose;
 
       double pctChange = 0.0;
       if (yesterdayClose != 0) {
@@ -181,7 +144,6 @@ class _MainPageState extends State<MainPage> {
 
   Future<Map<String, StockData>> _fetchGroupedForDate(String dateStr) async {
     final Map<String, StockData> map = {};
-
     final url = Uri.parse(
       'https://api.polygon.io/v2/aggs/grouped/locale/us/market/stocks/$dateStr'
           '?adjusted=true&apiKey=$_polygonApiKey',
@@ -190,10 +152,9 @@ class _MainPageState extends State<MainPage> {
     try {
       final resp = await http.get(url);
       if (resp.statusCode == 200) {
-        final Map<String, dynamic> jsonMap = json.decode(resp.body);
+        final jsonMap = json.decode(resp.body);
         if (jsonMap['status'] == 'OK' && jsonMap['results'] is List) {
-          final List results = jsonMap['results'];
-          for (final item in results) {
+          for (final item in jsonMap['results']) {
             final symbol = (item['T'] ?? '').toString();
             if (symbol.isEmpty) continue;
 
@@ -205,49 +166,46 @@ class _MainPageState extends State<MainPage> {
 
             final stock = StockData(
               symbol: symbol,
-              name:   symbol,
-              currentPrice:   close,
-              openPrice:      open,
-              highPrice:      high,
-              lowPrice:       low,
-              volume:         vol.toInt(),
+              name:   symbol, // or do real lookup
+              currentPrice: close,
+              openPrice:    open,
+              highPrice:    high,
+              lowPrice:     low,
+              volume:       vol.toInt(),
               absoluteChange: 0,
               percentChange:  0,
             );
             map[symbol] = stock;
           }
         } else {
-          debugPrint('Polygon response not OK or no results for $dateStr');
+          debugPrint('Polygon response not OK for $dateStr');
         }
       } else {
         debugPrint('HTTP Error for $dateStr: ${resp.statusCode} -> ${resp.body}');
       }
     } catch (e) {
-      debugPrint('Error fetching grouped daily for $dateStr: $e');
+      debugPrint('Error fetching daily for $dateStr: $e');
     }
 
     return map;
   }
 
   void _rebuildAllStocksFromCache() {
+    if (!mounted) return;
     setState(() {
       _allStocks = _symbolCache.values.toList()
         ..sort((a, b) => a.symbol.compareTo(b.symbol));
+      // Also refresh any references in ticker
       _tickerStocks = _tickerStocks
           .map((t) => _symbolCache[t.symbol] ?? t)
           .toList();
     });
   }
 
-  //============================================================================
-  //                          FIRESTORE PERSISTENCE
-  //============================================================================
-
+  //========================== FIRESTORE PERSISTENCE ==========================
   Future<void> _loadUserTickerSymbols() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      return;
-    }
+    if (user == null) return;
 
     try {
       final docSnap = await FirebaseFirestore.instance
@@ -256,14 +214,13 @@ class _MainPageState extends State<MainPage> {
           .get();
 
       if (!docSnap.exists) return;
-
       final data = docSnap.data();
       if (data == null) return;
 
       final List<dynamic>? symbolList = data['selectedTickerSymbols'] as List<dynamic>?;
       if (symbolList == null) return;
 
-      final List<StockData> newTicker = [];
+      final newTicker = <StockData>[];
       for (final symbol in symbolList) {
         if (_symbolCache.containsKey(symbol)) {
           newTicker.add(_symbolCache[symbol]!);
@@ -280,9 +237,7 @@ class _MainPageState extends State<MainPage> {
 
   Future<void> _saveUserTickerSymbols() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      return;
-    }
+    if (user == null) return;
 
     final symbolsToSave = _tickerStocks.map((s) => s.symbol).toList();
 
@@ -298,19 +253,57 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
-  //============================================================================
-  //                          UI / FILTERING
-  //============================================================================
+  Future<void> _loadUserFilterPreferences() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
-  List<StockData> _filterStocks(String query) {
-    if (query.isEmpty) return _allStocks;
-    final lower = query.toLowerCase();
-    return _allStocks.where((stock) {
-      return stock.symbol.toLowerCase().contains(lower)
-          || stock.name.toLowerCase().contains(lower);
-    }).toList();
+    try {
+      final docSnap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (!docSnap.exists) return;
+      final data = docSnap.data();
+      if (data == null) return;
+
+      final prefs = data['filterPreferences'];
+      if (prefs is Map<String, dynamic>) {
+        setState(() {
+          _tickerShowSymbol         = prefs['showSymbol']        ?? _tickerShowSymbol;
+          _tickerShowName           = prefs['showName']          ?? _tickerShowName;
+          _tickerShowPrice          = prefs['showPrice']         ?? _tickerShowPrice;
+          _tickerShowPercentChange  = prefs['showPercentChange'] ?? _tickerShowPercentChange;
+          _tickerShowAbsoluteChange = prefs['showAbsoluteChange']?? _tickerShowAbsoluteChange;
+          _tickerShowVolume         = prefs['showVolume']        ?? _tickerShowVolume;
+          _tickerShowOpeningPrice   = prefs['showOpeningPrice']  ?? _tickerShowOpeningPrice;
+          _tickerShowDailyHighLow   = prefs['showDailyHighLow']  ?? _tickerShowDailyHighLow;
+          _separator                = prefs['separator']         ?? _separator;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading filter preferences: $e');
+    }
   }
 
+  //============================= OVERLAY LOGIC ==============================
+  /// Whenever the ticker list changes, call this to send updated data to the overlay
+  void _sendTickerToOverlay() {
+    if (widget.onSendOverlayData == null) return;
+
+    final tickerList = _tickerStocks.map((s) => {
+      'symbol': s.symbol,
+      'name': s.name,
+      'currentPrice': s.currentPrice,
+      'absoluteChange': s.absoluteChange,
+      'percentChange': s.percentChange,
+    }).toList();
+
+    final jsonString = jsonEncode(tickerList);
+    widget.onSendOverlayData!(jsonString);
+  }
+
+  //=============================== UI METHODS ===============================
   void _toggleStockInTicker(StockData stock) {
     setState(() {
       if (_tickerStocks.contains(stock)) {
@@ -320,6 +313,7 @@ class _MainPageState extends State<MainPage> {
       }
     });
     _saveUserTickerSymbols();
+    _sendTickerToOverlay(); // refresh overlay
   }
 
   Future<void> _gotoProfileFilters() async {
@@ -352,13 +346,25 @@ class _MainPageState extends State<MainPage> {
         _tickerShowDailyHighLow   = result['showDailyHighLow']  ?? _tickerShowDailyHighLow;
         _separator                = result['separator']         ?? _separator;
       });
+      // Refresh overlay if filters changed
+      _sendTickerToOverlay();
     }
   }
 
-  //============================================================================
-  //                          BUILD METHOD
-  //============================================================================
+  //========================= ADDING THE _filterStocks METHOD =========================
+  /// Filter the main list by search text
+  List<StockData> _filterStocks(String query) {
+    if (query.isEmpty) return _allStocks;
 
+    final lowerQuery = query.toLowerCase();
+    return _allStocks.where((stock) {
+      final symbolMatch = stock.symbol.toLowerCase().contains(lowerQuery);
+      final nameMatch   = stock.name.toLowerCase().contains(lowerQuery);
+      return symbolMatch || nameMatch;
+    }).toList();
+  }
+
+  //============================== BUILD ===============================
   @override
   Widget build(BuildContext context) {
     final filtered = _filterStocks(_searchController.text);
@@ -380,18 +386,15 @@ class _MainPageState extends State<MainPage> {
               contentPadding: const EdgeInsets.symmetric(horizontal: 8),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide:
-                BorderSide(color: Colors.grey[400]!, width: 1),
+                borderSide: BorderSide(color: Colors.grey[400]!, width: 1),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide:
-                BorderSide(color: Colors.grey[400]!, width: 1),
+                borderSide: BorderSide(color: Colors.grey[400]!, width: 1),
               ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide:
-                const BorderSide(color: Colors.blue, width: 1.5),
+              focusedBorder: const OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(12)),
+                borderSide: BorderSide(color: Colors.blue, width: 1.5),
               ),
             ),
           ),
@@ -406,7 +409,6 @@ class _MainPageState extends State<MainPage> {
       body: Column(
         children: [
           if (_isLoading) const LinearProgressIndicator(),
-
           SizedBox(
             height: 165,
             child: _tickerStocks.isEmpty
@@ -420,7 +422,6 @@ class _MainPageState extends State<MainPage> {
               ),
             ),
           ),
-
           Expanded(
             child: filtered.isEmpty
                 ? const Center(child: Text('No stocks found.'))
@@ -437,10 +438,7 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
-  //============================================================================
-  //                           WIDGET BUILDERS
-  //============================================================================
-
+  //=========================== WIDGET BUILDERS ===========================
   Widget _buildTickerStockCard(StockData stock) {
     final color = (stock.absoluteChange >= 0) ? Colors.green : Colors.red;
     final graphImage = (stock.absoluteChange >= 0)
@@ -452,10 +450,7 @@ class _MainPageState extends State<MainPage> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            Colors.grey.shade100,
-            color,
-          ],
+          colors: [Colors.grey.shade100, color],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -513,7 +508,6 @@ class _MainPageState extends State<MainPage> {
               const SizedBox(height: 12),
             ],
           ),
-
           Positioned(
             bottom: 8,
             right: 8,
@@ -539,7 +533,6 @@ class _MainPageState extends State<MainPage> {
               ],
             ),
           ),
-
           Positioned(
             top: 8,
             right: 8,
@@ -593,6 +586,7 @@ class _MainPageState extends State<MainPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Collapsed row
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Row(
@@ -648,6 +642,7 @@ class _MainPageState extends State<MainPage> {
                     ],
                   ),
                 ),
+                // Expanded details
                 if (isExpanded)
                   Container(
                     padding: const EdgeInsets.all(16),

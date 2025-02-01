@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 
-/// Minimal model for passing ticker data from JSON
 class StockDataModel {
   final String symbol;
   final String name;
@@ -48,7 +47,7 @@ class _OverlayTickerAppState extends State<OverlayTickerApp> {
     super.initState();
 
     /// Listen for incoming data from the main app
-    FlutterOverlayWindow.overlayListenerSetup((data) {
+    FlutterOverlayWindow.overlayListener.listen((data) {
       // data is a String
       debugPrint("Overlay received data: $data");
 
