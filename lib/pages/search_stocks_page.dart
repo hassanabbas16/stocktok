@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:marquee/marquee.dart';
+import 'package:stocktok/services/floating_window_service.dart';
+import 'package:stocktok/models/stock_data.dart';
 
 /// Replace with your real Alpha Vantage API key.
 const alphaVantageApiKey = 'VuAp8k6bioJUIuflawofK1jbfA0U1V9s';
@@ -29,21 +31,20 @@ class _SearchStocksPageState extends State<SearchStocksPage> {
   // All symbols that user wants to watch
   List<String> _watchlistSymbols = [];
 
-  // For each symbol: store a “live” data map (from Global Quote)
+  // For each symbol: store a "live" data map (from Global Quote)
   // e.g. { "price": 150.0, "change": +2.0, "percent": 1.2, "high":..., "low":... }
   Map<String, Map<String, dynamic>> _watchlistLiveData = {};
 
   // ------- Timer for watchlist refreshing -------
   Timer? _refreshTimer;
 
+  final FloatingWindowService _floatingWindowService = FloatingWindowService();
+  bool _isFloatingWindowActive = false;
+
   @override
   void initState() {
     super.initState();
-    // Optionally, load existing watchlist from your local store or Firebase
-    // For demonstration, we start empty:
     _watchlistSymbols = [];
-
-    // Kick off a periodic refresh (every 1 minute)
     _refreshTimer = Timer.periodic(Duration(minutes: 1), (_) {
       _refreshWatchlist();
     });
@@ -52,6 +53,7 @@ class _SearchStocksPageState extends State<SearchStocksPage> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _floatingWindowService.dispose();
     super.dispose();
   }
 
@@ -223,6 +225,37 @@ class _SearchStocksPageState extends State<SearchStocksPage> {
     await FirebaseAuth.instance.signOut();
   }
 
+  void _toggleFloatingWindow() async {
+    setState(() {
+      _isFloatingWindowActive = !_isFloatingWindowActive;
+    });
+    
+    if (_isFloatingWindowActive) {
+      final List<StockData> stocks = _watchlistSymbols.map((symbol) {
+        final data = _watchlistLiveData[symbol] ?? {};
+        return StockData(
+          symbol: symbol,
+          name: '',
+          currentPrice: data['price'] ?? 0.0,
+          openPrice: data['open'] ?? 0.0,
+          highPrice: data['high'] ?? 0.0,
+          lowPrice: data['low'] ?? 0.0,
+          volume: data['volume'] ?? 0,
+          absoluteChange: data['change'] ?? 0.0,
+          percentChange: data['changePct'] ?? 0.0,
+        );
+      }).toList();
+
+      await _floatingWindowService.startService(stocks, {
+        'showSymbol': true,
+        'showPrice': true,
+        'showPercentChange': true,
+      });
+    } else {
+      await _floatingWindowService.stopService();
+    }
+  }
+
   // ---------------------------------------------------------------------------
   //                                BUILD
   // ---------------------------------------------------------------------------
@@ -255,11 +288,17 @@ class _SearchStocksPageState extends State<SearchStocksPage> {
         ),
         actions: [
           IconButton(
+            icon: Icon(
+              _isFloatingWindowActive 
+                  ? Icons.close_fullscreen
+                  : Icons.open_in_full,
+              color: Colors.white,
+            ),
+            onPressed: _toggleFloatingWindow,
+          ),
+          IconButton(
             icon: Icon(Icons.settings, color: Colors.white),
-            onPressed: () {
-              // TODO: Navigate to your filter/profile page
-              // Navigator.push(context, ...);
-            },
+            onPressed: () {},
           ),
           IconButton(
             icon: Icon(Icons.logout, color: Colors.white),
@@ -283,7 +322,7 @@ class _SearchStocksPageState extends State<SearchStocksPage> {
               ),
             ),
 
-          // 2) Body split into watchlist “cards” + search results
+          // 2) Body split into watchlist "cards" + search results
           Expanded(
             child: SingleChildScrollView(
               padding: EdgeInsets.all(12),

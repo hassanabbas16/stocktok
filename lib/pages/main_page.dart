@@ -5,48 +5,16 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart';
 
 import 'profile_filter_page.dart';
+import '../services/floating_window_service.dart';
+import '../models/stock_data.dart';
+import '../services/pip_service.dart';
+import '../widgets/pip_ticker_view.dart';
 
 /// Represents data for one day's bar for a ticker,
 /// combining "today" and "yesterday" to compute changes.
-class StockData {
-  final String symbol;
-  final String name;
-
-  /// For the current day (the "today" date):
-  double currentPrice;   // from "c" (close) field
-  double openPrice;      // from "o"
-  double highPrice;      // from "h"
-  double lowPrice;       // from "l"
-  int volume;            // from "v"
-
-  /// Changes vs. the previous day:
-  double absoluteChange; // (todayClose - yesterdayClose)
-  double percentChange;  // (absChange / yesterdayClose) * 100
-
-  StockData({
-    required this.symbol,
-    required this.name,
-    required this.currentPrice,
-    required this.openPrice,
-    required this.highPrice,
-    required this.lowPrice,
-    required this.volume,
-    required this.absoluteChange,
-    required this.percentChange,
-  });
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-          other is StockData &&
-              runtimeType == other.runtimeType &&
-              symbol == other.symbol;
-
-  @override
-  int get hashCode => symbol.hashCode;
-}
 
 class MainPage extends StatefulWidget {
   const MainPage({Key? key}) : super(key: key);
@@ -55,7 +23,7 @@ class MainPage extends StatefulWidget {
   _MainPageState createState() => _MainPageState();
 }
 
-class _MainPageState extends State<MainPage> {
+class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   // We'll do 2 calls: one for "today" and one for "yesterday"
   // (Use actual dynamic date logic in production, if desired)
   final String _dateToFetch = '2025-01-24';      // "today"
@@ -88,9 +56,43 @@ class _MainPageState extends State<MainPage> {
   final TextEditingController _searchController = TextEditingController();
   bool _isLoading = false;
 
+  // Add these at the top with other variables
+  bool _isFloatingWindowActive = false;
+  final FloatingWindowService _floatingWindowService = FloatingWindowService();
+
+  // Add a backup cache for comparison data
+  Map<String, StockData> _originalDataCache = {};
+
+  bool _needsDataRefresh = false;
+  bool _isNotificationShadeOpen = false;
+  DateTime? _lastFocusLossTime;
+  bool _wasResumed = true;  // Set to true initially
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    
+    // Add a small delay to ensure channel is ready
+    Future.delayed(const Duration(milliseconds: 100), () {
+      PiPService.setIsMainPage(true);
+      debugPrint('Main Page: Setting isMainPage to true');
+    });
+    
+    const channel = MethodChannel('com.stocktok/pip');
+    channel.setMethodCallHandler((call) async {
+      if (call.method == 'onPiPChanged') {
+        final isInPiP = call.arguments as bool;
+        if (mounted) {
+          setState(() {
+            _isFloatingWindowActive = isInPiP;
+            if (!isInPiP) {
+              _rebuildAllStocksFromCache();
+            }
+          });
+        }
+      }
+    });
 
     // 1) Fetch the stock data from Polygon.
     // 2) Then load the user's saved ticker selection from Firestore.
@@ -99,13 +101,39 @@ class _MainPageState extends State<MainPage> {
     _fetchTwoDaysData().then((_) async {
       await _loadUserTickerSymbols();
       await _loadUserFilterPreferences();
+      // Store original data when first fetched
+      _originalDataCache = Map.from(_symbolCache);
     });
   }
 
-  /// We won't do auto-refresh for grouped data, but you could if desired
   @override
   void dispose() {
+    PiPService.setIsMainPage(false);
+    debugPrint('Main Page: Setting isMainPage to false');
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _needsDataRefresh && mounted) {
+      setState(() {
+        _rebuildAllStocksFromCache();
+      });
+      _needsDataRefresh = false;
+    }
+  }
+
+  @override
+  Future<bool> onWillPop() async {
+    if (_tickerStocks.isNotEmpty) {
+      await PiPService.enterPiPMode();
+      setState(() {
+        _isFloatingWindowActive = true;
+      });
+      return false;
+    }
+    return true;
   }
 
   //============================================================================
@@ -245,12 +273,27 @@ class _MainPageState extends State<MainPage> {
   /// Rebuilds the master list from _symbolCache
   void _rebuildAllStocksFromCache() {
     setState(() {
-      _allStocks = _symbolCache.values.toList()
-        ..sort((a, b) => a.symbol.compareTo(b.symbol));
-      // Also refresh any references in ticker if needed.
-      // This ensures if data was updated, the ticker sees the new data.
+      // Use original cache for comparisons
+      _allStocks = _symbolCache.values.map((stock) {
+        final originalStock = _originalDataCache[stock.symbol];
+        if (originalStock != null) {
+          return StockData(
+            symbol: stock.symbol,
+            name: stock.name,
+            currentPrice: stock.currentPrice,
+            openPrice: stock.openPrice,
+            highPrice: stock.highPrice,
+            lowPrice: stock.lowPrice,
+            volume: stock.volume,
+            absoluteChange: originalStock.absoluteChange,
+            percentChange: originalStock.percentChange,
+          );
+        }
+        return stock;
+      }).toList()..sort((a, b) => a.symbol.compareTo(b.symbol));
+
       _tickerStocks = _tickerStocks
-          .map((t) => _symbolCache[t.symbol] ?? t)
+          .map((t) => _allStocks.firstWhere((s) => s.symbol == t.symbol, orElse: () => t))
           .toList();
     });
   }
@@ -349,6 +392,9 @@ class _MainPageState extends State<MainPage> {
 
   /// Navigate to profile & filter page
   Future<void> _gotoProfileFilters() async {
+    PiPService.setIsMainPage(false);  // Set false before navigation
+    debugPrint('Main Page: Setting isMainPage to false before navigation');
+    
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -366,6 +412,9 @@ class _MainPageState extends State<MainPage> {
       ),
     );
 
+    PiPService.setIsMainPage(true);  // Set true after returning
+    debugPrint('Main Page: Setting isMainPage to true after navigation');
+    
     if (result is Map<String, dynamic>) {
       setState(() {
         _tickerShowSymbol         = result['showSymbol']        ?? _tickerShowSymbol;
@@ -387,86 +436,265 @@ class _MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Get stocks directly from _tickerStocks since these are already the selected ones
+    final List<StockData> pipStocks = _tickerStocks;
+
     final filtered = _filterStocks(_searchController.text);
 
-    return Scaffold(
-      // -- NO TITLE, replaced with a row that has search bar + settings icon
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        // We'll use a Row in place of the usual title
-        title: SizedBox(
-          height: 40,
-          child: TextField(
-            controller: _searchController,
-            // Removing "Find" button; auto-filter as user types
-            onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              hintText: 'Search symbol...',
-              prefixIcon: const Icon(Icons.search),
-              filled: true,
-              fillColor: Colors.grey[200], // Use a light grey background
-              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide:
-                BorderSide(color: Colors.grey[400]!, width: 1), // Light border
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide:
-                BorderSide(color: Colors.grey[400]!, width: 1), // Light border
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide:
-                const BorderSide(color: Colors.blue, width: 1.5), // Thicker border
+    return PopScope(
+      canPop: _tickerStocks.isEmpty,
+      onPopInvoked: (didPop) async {
+        debugPrint('PopScope: didPop=$didPop, tickerStocks=${_tickerStocks.isNotEmpty}');
+        if (!didPop && _tickerStocks.isNotEmpty) {
+          await PiPService.enterPiPMode();
+          setState(() {
+            _isFloatingWindowActive = true;
+          });
+        }
+      },
+      child: Scaffold(
+        appBar: _isFloatingWindowActive ? null : AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          title: SizedBox(
+            height: 40,
+            child: TextField(
+              controller: _searchController,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                hintText: 'Search symbol...',
+                prefixIcon: const Icon(Icons.search),
+                filled: true,
+                fillColor: Colors.grey[200],
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[400]!, width: 1),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[400]!, width: 1),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Colors.blue, width: 1.5),
+                ),
               ),
             ),
           ),
+          actions: [
+            IconButton(
+              icon: Icon(
+                _isFloatingWindowActive ? Icons.close_fullscreen : Icons.open_in_full,
+                color: Colors.black,
+              ),
+              onPressed: _toggleFloatingWindow,
+            ),
+            IconButton(
+              icon: const Icon(Icons.settings, color: Colors.black),
+              onPressed: _gotoProfileFilters,
+            ),
+          ],
         ),
-        actions: [
-          // SETTINGS ICON
-          IconButton(
-            icon: const Icon(Icons.settings, color: Colors.black),
-            onPressed: _gotoProfileFilters,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          //===== Progress indicator if loading =====
-          if (_isLoading) const LinearProgressIndicator(),
+        body: _isFloatingWindowActive
+            ? PipTickerView(
+                stocks: pipStocks,
+                displayPrefs: {
+                  'showSymbol': _tickerShowSymbol,
+                  'showName': _tickerShowName,
+                  'showPrice': _tickerShowPrice,
+                  'showPercentChange': _tickerShowPercentChange,
+                  'showAbsoluteChange': _tickerShowAbsoluteChange,
+                  'showVolume': _tickerShowVolume,
+                  'showOpeningPrice': _tickerShowOpeningPrice,
+                  'showDailyHighLow': _tickerShowDailyHighLow,
+                },
+                separator: _separator,
+              )
+            : Column(
+          children: [
+            if (_isLoading) const LinearProgressIndicator(),
 
-          //===== HORIZONTAL TICKER =====
-          // Single-line scroll of "cards"
-          SizedBox(
-            height: 165,
-            child: _tickerStocks.isEmpty
-                ? const Center(child: Text('No stocks in ticker.'))
-                : SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _tickerStocks.map((stock) {
-                  return _buildTickerStockCard(stock);
-                }).toList(),
+            Container(
+              constraints: BoxConstraints(
+                minHeight: 100,  // Reduced minimum height
+                maxHeight: 300,
               ),
+              child: _tickerStocks.isEmpty
+                  ? const Center(child: Text('No stocks in ticker.'))
+                  : SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: _tickerStocks.map((stock) {
+                          return LayoutBuilder(
+                            builder: (context, constraints) {
+                              return Container(
+                                margin: const EdgeInsets.all(12),
+                                padding: const EdgeInsets.all(16),
+                                width: 300,
+                                constraints: const BoxConstraints(
+                                  minHeight: 80,  // Minimum card height
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.grey.shade100,
+                                      stock.absoluteChange >= 0 ? Colors.green : Colors.red,
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.grey.shade300,
+                                      blurRadius: 6,
+                                      offset: const Offset(2, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: IntrinsicHeight(
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (_tickerShowName)
+                                              Text(
+                                                stock.name,
+                                                style: const TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            if (_tickerShowSymbol)
+                                              Text(
+                                                stock.symbol,
+                                                style: const TextStyle(
+                                                  fontSize: 24,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            if (_tickerShowPrice)
+                                              Text(
+                                                '\$${stock.currentPrice.toStringAsFixed(2)}',
+                                                style: TextStyle(
+                                                  color: stock.absoluteChange >= 0 
+                                                      ? Colors.green 
+                                                      : Colors.red,
+                                                  fontSize: 24,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            if (_tickerShowAbsoluteChange || _tickerShowPercentChange)
+                                              Row(
+                                                children: [
+                                                  if (_tickerShowAbsoluteChange)
+                                                    Text(
+                                                      '${stock.absoluteChange >= 0 ? '+' : ''}'
+                                                          '${stock.absoluteChange.toStringAsFixed(2)}  ',
+                                                      style: TextStyle(
+                                                        color: stock.absoluteChange >= 0 
+                                                            ? Colors.green 
+                                                            : Colors.red,
+                                                        fontSize: 20,
+                                                      ),
+                                                    ),
+                                                  if (_tickerShowPercentChange)
+                                                    Text(
+                                                      '${stock.percentChange >= 0 ? '+' : ''}'
+                                                          '${stock.percentChange.toStringAsFixed(2)}%',
+                                                      style: TextStyle(
+                                                        color: stock.absoluteChange >= 0 
+                                                            ? Colors.green 
+                                                            : Colors.red,
+                                                        fontSize: 20,
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                            if (_tickerShowVolume)
+                                              Text(
+                                                'Vol: ${stock.volume}',
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            if (_tickerShowOpeningPrice)
+                                              Text(
+                                                'Open: \$${stock.openPrice.toStringAsFixed(2)}',
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            if (_tickerShowDailyHighLow)
+                                              Text(
+                                                'H: \$${stock.highPrice.toStringAsFixed(2)}  '
+                                                    'L: \$${stock.lowPrice.toStringAsFixed(2)}',
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      Container(
+                                        height: 48,
+                                        width: 48,
+                                        margin: const EdgeInsets.only(left: 8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(6),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.grey.shade400.withOpacity(0.5),
+                                              blurRadius: 6,
+                                              offset: const Offset(2, 4),
+                                            ),
+                                          ],
+                                        ),
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(6),
+                                          child: Image.asset(
+                                            stock.absoluteChange >= 0
+                                                ? 'assets/images/greengraph.png'
+                                                : 'assets/images/redgraph.png',
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ),
             ),
-          ),
 
-          //===== MAIN LIST =====
-          Expanded(
-            child: filtered.isEmpty
-                ? const Center(child: Text('No stocks found.'))
-                : ListView.builder(
-              itemCount: filtered.length,
-              itemBuilder: (ctx, i) {
-                final stock = filtered[i];
-                return _buildStockCard(stock);
-              },
+            const Divider(height: 1),
+
+            Expanded(
+              child: filtered.isEmpty
+                  ? const Center(child: Text('No stocks found.'))
+                  : ListView.builder(
+                      itemCount: filtered.length,
+                      itemBuilder: (ctx, i) {
+                        final stock = filtered[i];
+                        return _buildStockCard(stock);
+                      },
+                    ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -474,145 +702,6 @@ class _MainPageState extends State<MainPage> {
   //============================================================================
   //                           WIDGET BUILDERS
   //============================================================================
-
-  /// Builds each ticker item as a horizontally scrollable "card":
-  /// Transparent background, gray border, name+symbol+price on left,
-  /// plus optional fields on the right, as toggles allow.
-  Widget _buildTickerStockCard(StockData stock) {
-    final color = (stock.absoluteChange >= 0) ? Colors.green : Colors.red;
-    final graphImage = (stock.absoluteChange >= 0)
-        ? 'assets/images/greengraph.png'
-        : 'assets/images/redgraph.png';
-
-    return Container(
-      margin: const EdgeInsets.all(12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.grey.shade100,
-            color,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(color: Colors.grey.shade200, width: 1),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.shade300,
-            blurRadius: 6,
-            offset: const Offset(2, 4),
-          ),
-        ],
-      ),
-      width: 300,
-      child: Stack(
-        children: [
-          // Main content
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Stock name, symbol, and price
-              if (_tickerShowName)
-                Text(
-                  stock.name,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              if (_tickerShowSymbol)
-                Text(
-                  stock.symbol,
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-              if (_tickerShowPrice)
-                Text(
-                  '\$${stock.currentPrice.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              // Gain/loss information
-              Row(
-                children: [
-                  if (_tickerShowAbsoluteChange)
-                    Text(
-                      '${stock.absoluteChange >= 0 ? '+' : ''}'
-                          '${stock.absoluteChange.toStringAsFixed(2)}  ',
-                      style: TextStyle(color: color, fontSize: 20),
-                    ),
-                  if (_tickerShowPercentChange)
-                    Text(
-                      '${stock.percentChange >= 0 ? '+' : ''}'
-                          '${stock.percentChange.toStringAsFixed(2)}%',
-                      style: TextStyle(color: color, fontSize: 20),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 12),
-            ],
-          ),
-
-          // Bottom-right details
-          Positioned(
-            bottom: 8,
-            right: 8,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                if (_tickerShowVolume)
-                  Text(
-                    'Vol: ${stock.volume}',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                  ),
-                if (_tickerShowOpeningPrice)
-                  Text(
-                    'Open: \$${stock.openPrice.toStringAsFixed(2)}',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                  ),
-                if (_tickerShowDailyHighLow)
-                  Text(
-                    'H: \$${stock.highPrice.toStringAsFixed(2)}  '
-                        'L: \$${stock.lowPrice.toStringAsFixed(2)}',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                  ),
-              ],
-            ),
-          ),
-
-          // Top-right gain/loss icon
-          Positioned(
-            top: 8,
-            right: 8,
-            child: Container(
-              height: 48, // size of the square box
-              width: 48,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: Colors.grey.shade300, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.shade400.withOpacity(0.5),
-                    blurRadius: 6,
-                    offset: const Offset(2, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Image.asset(
-                  graphImage,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildStockCard(StockData stock) {
     final color = (stock.absoluteChange >= 0) ? Colors.green : Colors.red;
@@ -766,5 +855,35 @@ class _MainPageState extends State<MainPage> {
         );
       },
     );
+  }
+
+  // Add this method
+  void _toggleFloatingWindow() async {
+    if (_tickerStocks.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please star some stocks first to use PiP mode'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    if (!_isFloatingWindowActive) {
+      // Entering PiP mode
+      await PiPService.enterPiPMode();
+      if (mounted) {
+        setState(() {
+          _isFloatingWindowActive = true;
+        });
+      }
+    } else {
+      // Exiting PiP mode - just update the state without refetching
+      if (mounted) {
+        setState(() {
+          _isFloatingWindowActive = false;
+        });
+      }
+    }
   }
 }
