@@ -24,7 +24,9 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   final user = FirebaseAuth.instance.currentUser;
+
   bool _isFloatingWindowActive = false;
+  bool _isLoading = false;
 
   // Ticker-only filter preferences
   bool _tickerShowSymbol         = true;
@@ -37,24 +39,26 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   bool _tickerShowDailyHighLow   = false;
   String _separator              = ' .... ';
 
+  // Watchlist
   List<String> _watchlistSymbols = [];
   List<StockData> _watchlistData = [];
-  bool _isLoading = false;
 
-  final FloatingWindowService _floatingWindowService = FloatingWindowService();
+  // For searching the watchlist
+  final TextEditingController _searchController = TextEditingController();
+
+  String get _searchQuery => _searchController.text.trim().toLowerCase();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    // Indicate this page is the main page for PiP logic
+    // PiP setup
     Future.delayed(const Duration(milliseconds: 100), () {
       PiPService.setIsMainPage(true);
     });
 
-    // Listen for PiP changes
-    var channel = MethodChannel('com.stocktok/pip');
+    const channel = MethodChannel('com.stocktok/pip');
     channel.setMethodCallHandler((call) async {
       if (call.method == 'onPiPChanged') {
         final isInPiP = call.arguments as bool;
@@ -72,14 +76,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   Future<void> _initialLoad() async {
     setState(() => _isLoading = true);
 
-    // Load filter prefs from Firestore
     await _loadUserFilterPreferences();
-
-    // Load user watchlist symbols
     await _loadUserWatchlist();
 
-    // If watchlist is empty, navigate immediately to search page
-    // but only if they are logged in
+    // If watchlist empty => require selection
     if (_watchlistSymbols.isEmpty && user != null) {
       if (mounted) {
         Navigator.pushReplacement(
@@ -90,13 +90,12 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       return;
     }
 
-    // Start a timer to update watchlist data every minute from 12Data
+    // Update watchlist from 12Data every minute
     Timer.periodic(const Duration(minutes: 1), (_) {
       _refreshWatchlist();
     });
 
-    await _refreshWatchlist(); // initial fetch from 12Data for watchlist
-
+    await _refreshWatchlist();
     setState(() => _isLoading = false);
   }
 
@@ -107,14 +106,14 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  /// If app is in PiP and we resume, we might want to exit PiP or refresh.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && mounted) {
-      // do any needed refresh if returning from background, etc.
-    }
+    // e.g. on resumed
   }
 
+  // ===========================================================================
+  // LOAD / SAVE
+  // ===========================================================================
   Future<void> _loadUserFilterPreferences() async {
     if (user == null) return;
     try {
@@ -122,7 +121,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           .collection('users')
           .doc(user!.uid)
           .get();
-
       if (!docSnap.exists) return;
       final data = docSnap.data();
       if (data == null) return;
@@ -141,9 +139,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           _separator                = prefs['separator']         ?? _separator;
         });
       }
-    } catch (e) {
-      // Handle error
-    }
+    } catch (_) {}
   }
 
   Future<void> _loadUserWatchlist() async {
@@ -154,17 +150,14 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           .doc(user!.uid)
           .get();
       if (!docSnap.exists) return;
-
       final data = docSnap.data();
       if (data == null) return;
 
       final List<dynamic>? symbols = data['selectedTickerSymbols'] as List<dynamic>?;
-      if (symbols == null) return;
-
-      _watchlistSymbols = symbols.map((e) => e.toString()).toList();
-    } catch (e) {
-      // handle error
-    }
+      if (symbols != null) {
+        _watchlistSymbols = symbols.map((e) => e.toString()).toList();
+      }
+    } catch (_) {}
   }
 
   Future<void> _saveUserWatchlist() async {
@@ -177,63 +170,62 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     }, SetOptions(merge: true));
   }
 
-  /// Refresh watchlist data from the DataRepository + TwelveData
+  // ===========================================================================
+  // REFRESH FROM 12Data
+  // ===========================================================================
   Future<void> _refreshWatchlist() async {
     final dataRepo = Provider.of<DataRepository>(context, listen: false);
-
-    // Build list of StockData for watchlist from our DataRepository cache if present
-    // Then queue or fetch from 12Data to get updated pricing
     List<StockData> updated = [];
 
     for (final symbol in _watchlistSymbols) {
-      // Add symbol to the fetch queue
       TwelveDataService.enqueueSymbol(symbol);
-
-      // See if we have it in dataRepo's polygonCache
       final cached = dataRepo.getSymbolData(symbol);
       if (cached != null) {
         updated.add(cached);
       } else {
-        // if not found in polygon data, we do a direct fetch from 12data
         final fetched = await TwelveDataService.fetchQuote(symbol);
         if (fetched != null) {
           dataRepo.updateSymbolData(fetched);
           updated.add(fetched);
-        } else {
-          // fallback empty
         }
       }
     }
 
-    setState(() {
-      _watchlistData = updated;
-    });
+    setState(() => _watchlistData = updated);
   }
 
-  /// Toggles the PiP floating window
-  void _toggleFloatingWindow() async {
-    if (_watchlistData.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please add some stocks first to use PiP mode'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return;
-    }
-
-    if (!_isFloatingWindowActive) {
-      // Enter PiP
-      await PiPService.enterPiPMode();
-      setState(() => _isFloatingWindowActive = true);
-    } else {
-      // Exit PiP
-      setState(() => _isFloatingWindowActive = false);
-    }
+  // ===========================================================================
+  // FILTER
+  // ===========================================================================
+  List<StockData> get filteredWatchlist {
+    if (_searchQuery.isEmpty) return _watchlistData;
+    return _watchlistData.where((s) {
+      return s.symbol.toLowerCase().contains(_searchQuery) ||
+          s.name.toLowerCase().contains(_searchQuery);
+    }).toList();
   }
 
-  /// Toggle a symbol's watchlist membership
-  void _onWatchlistCheckboxTap(StockData stock) async {
+  // ===========================================================================
+  // REORDER
+  // ===========================================================================
+  void _onReorder(int oldIndex, int newIndex) async {
+    if (newIndex > oldIndex) {
+      newIndex -= 1;
+    }
+    final symbol = _watchlistSymbols.removeAt(oldIndex);
+    _watchlistSymbols.insert(newIndex, symbol);
+
+    final stock = _watchlistData.removeAt(oldIndex);
+    _watchlistData.insert(newIndex, stock);
+
+    setState(() {});
+    await _saveUserWatchlist();
+  }
+
+  // ===========================================================================
+  // TOGGLE WATCHLIST MEMBERSHIP
+  // ===========================================================================
+  void _toggleSymbol(StockData stock) async {
     setState(() {
       if (_watchlistSymbols.contains(stock.symbol)) {
         _watchlistSymbols.remove(stock.symbol);
@@ -245,6 +237,27 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     await _refreshWatchlist();
   }
 
+  // ===========================================================================
+  // PIP
+  // ===========================================================================
+  void _toggleFloatingWindow() async {
+    if (_watchlistData.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please add some stocks first to use PiP mode')),
+      );
+      return;
+    }
+    if (!_isFloatingWindowActive) {
+      await PiPService.enterPiPMode();
+      setState(() => _isFloatingWindowActive = true);
+    } else {
+      setState(() => _isFloatingWindowActive = false);
+    }
+  }
+
+  // ===========================================================================
+  // NAV
+  // ===========================================================================
   Future<void> _gotoProfileFilters() async {
     PiPService.setIsMainPage(false);
     final result = await Navigator.push(
@@ -280,15 +293,16 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     }
   }
 
+  // ===========================================================================
+  // BUILD
+  // ===========================================================================
   @override
   Widget build(BuildContext context) {
-    final watchlistStocks = _watchlistData;
-
+    // If user is in PiP mode, show the PiP ticker
     if (_isFloatingWindowActive) {
-      // Show the PiP Ticker View
       return Scaffold(
         body: PipTickerView(
-          stocks: watchlistStocks,
+          stocks: _watchlistData, // reflect any reorder
           displayPrefs: {
             'showSymbol': _tickerShowSymbol,
             'showName': _tickerShowName,
@@ -306,37 +320,39 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'StockTok Home',
-          style: TextStyle(color: Colors.black),
+        // Replacing title with a search bar
+        title: Container(
+          height: 40,
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          child: TextField(
+            controller: _searchController,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              hintText: 'Filter watchlist...',
+              prefixIcon: const Icon(Icons.search),
+            ),
+          ),
         ),
         actions: [
           IconButton(
-            icon: Icon(
-              _isFloatingWindowActive ? Icons.close_fullscreen : Icons.open_in_full,
-              color: Colors.black,
-            ),
+            icon: Icon(_isFloatingWindowActive ? Icons.close_fullscreen : Icons.open_in_full),
             onPressed: _toggleFloatingWindow,
           ),
           IconButton(
-            icon: const Icon(Icons.settings, color: Colors.black),
+            icon: const Icon(Icons.settings),
             onPressed: _gotoProfileFilters,
           ),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : (watchlistStocks.isEmpty)
+          : filteredWatchlist.isEmpty
           ? Center(
         child: ElevatedButton(
           onPressed: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (_) => const SearchPage(forceSelection: false),
-              ),
+              MaterialPageRoute(builder: (_) => const SearchPage(forceSelection: false)),
             );
           },
           child: const Text('Add Symbols to Watchlist'),
@@ -344,24 +360,42 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       )
           : RefreshIndicator(
         onRefresh: _refreshWatchlist,
-        child: ListView.builder(
-          itemCount: watchlistStocks.length,
+        child: ReorderableListView.builder(
+          itemCount: filteredWatchlist.length,
+          onReorder: _onReorder,
           itemBuilder: (context, index) {
-            final stock = watchlistStocks[index];
+            final stock = filteredWatchlist[index];
             final isChecked = _watchlistSymbols.contains(stock.symbol);
-
-            return WatchlistCard(
-              stock: stock,
-              showSymbol: _tickerShowSymbol,
-              showName: _tickerShowName,
-              showPrice: _tickerShowPrice,
-              showPercentChange: _tickerShowPercentChange,
-              showAbsoluteChange: _tickerShowAbsoluteChange,
-              showVolume: _tickerShowVolume,
-              showOpeningPrice: _tickerShowOpeningPrice,
-              showDailyHighLow: _tickerShowDailyHighLow,
-              isChecked: isChecked,
-              onCheckboxChanged: () => _onWatchlistCheckboxTap(stock),
+            return Dismissible(
+              key: ValueKey(stock.symbol),
+              background: Container(
+                color: Colors.red,
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 16),
+                child: const Icon(Icons.delete, color: Colors.white),
+              ),
+              direction: DismissDirection.endToStart,
+              onDismissed: (dir) {
+                setState(() {
+                  _watchlistSymbols.remove(stock.symbol);
+                  _watchlistData.remove(stock);
+                });
+                _saveUserWatchlist();
+              },
+              child: WatchlistCard(
+                key: ValueKey('watchlistCard-${stock.symbol}'),
+                stock: stock,
+                showSymbol: _tickerShowSymbol,
+                showName: _tickerShowName,
+                showPrice: _tickerShowPrice,
+                showPercentChange: _tickerShowPercentChange,
+                showAbsoluteChange: _tickerShowAbsoluteChange,
+                showVolume: _tickerShowVolume,
+                showOpeningPrice: _tickerShowOpeningPrice,
+                showDailyHighLow: _tickerShowDailyHighLow,
+                isChecked: isChecked,
+                onCheckboxChanged: () => _toggleSymbol(stock),
+              ),
             );
           },
         ),

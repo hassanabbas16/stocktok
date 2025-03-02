@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'search_page.dart';
+
 class ProfileFilterPage extends StatefulWidget {
-  // Current filter booleans
   final bool showSymbol;
   final bool showName;
   final bool showPrice;
@@ -49,15 +50,15 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
   @override
   void initState() {
     super.initState();
-    _showSymbol = widget.showSymbol;
-    _showName = widget.showName;
-    _showPrice = widget.showPrice;
-    _showPercentChange = widget.showPercentChange;
+    _showSymbol         = widget.showSymbol;
+    _showName           = widget.showName;
+    _showPrice          = widget.showPrice;
+    _showPercentChange  = widget.showPercentChange;
     _showAbsoluteChange = widget.showAbsoluteChange;
-    _showVolume = widget.showVolume;
-    _showOpeningPrice = widget.showOpeningPrice;
-    _showDailyHighLow = widget.showDailyHighLow;
-    _separator = widget.separator;
+    _showVolume         = widget.showVolume;
+    _showOpeningPrice   = widget.showOpeningPrice;
+    _showDailyHighLow   = widget.showDailyHighLow;
+    _separator          = widget.separator;
 
     _loadUserFilterPreferences();
   }
@@ -71,7 +72,6 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
   Future<void> _loadUserFilterPreferences() async {
     final user = _auth.currentUser;
     if (user == null) return;
-
     setState(() => _isLoadingPrefs = true);
     try {
       final docSnap = await FirebaseFirestore.instance
@@ -83,20 +83,20 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
         if (data != null && data['filterPreferences'] is Map) {
           final prefs = data['filterPreferences'] as Map<String, dynamic>;
           setState(() {
-            _showSymbol        = prefs['showSymbol']        ?? _showSymbol;
-            _showName          = prefs['showName']          ?? _showName;
-            _showPrice         = prefs['showPrice']         ?? _showPrice;
-            _showPercentChange = prefs['showPercentChange'] ?? _showPercentChange;
-            _showAbsoluteChange= prefs['showAbsoluteChange']?? _showAbsoluteChange;
-            _showVolume        = prefs['showVolume']        ?? _showVolume;
-            _showOpeningPrice  = prefs['showOpeningPrice']  ?? _showOpeningPrice;
-            _showDailyHighLow  = prefs['showDailyHighLow']  ?? _showDailyHighLow;
-            _separator         = prefs['separator']         ?? _separator;
+            _showSymbol         = prefs['showSymbol']        ?? _showSymbol;
+            _showName           = prefs['showName']          ?? _showName;
+            _showPrice          = prefs['showPrice']         ?? _showPrice;
+            _showPercentChange  = prefs['showPercentChange'] ?? _showPercentChange;
+            _showAbsoluteChange = prefs['showAbsoluteChange']?? _showAbsoluteChange;
+            _showVolume         = prefs['showVolume']        ?? _showVolume;
+            _showOpeningPrice   = prefs['showOpeningPrice']  ?? _showOpeningPrice;
+            _showDailyHighLow   = prefs['showDailyHighLow']  ?? _showDailyHighLow;
+            _separator          = prefs['separator']         ?? _separator;
           });
         }
       }
-    } catch (e) {
-      // show error
+    } catch (_) {
+      // handle error
     } finally {
       setState(() => _isLoadingPrefs = false);
     }
@@ -111,20 +111,18 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
           .doc(user.uid)
           .set({
         'filterPreferences': {
-          'showSymbol':        _showSymbol,
-          'showName':          _showName,
-          'showPrice':         _showPrice,
-          'showPercentChange': _showPercentChange,
-          'showAbsoluteChange':_showAbsoluteChange,
-          'showVolume':        _showVolume,
-          'showOpeningPrice':  _showOpeningPrice,
-          'showDailyHighLow':  _showDailyHighLow,
-          'separator':         _separator,
+          'showSymbol':         _showSymbol,
+          'showName':           _showName,
+          'showPrice':          _showPrice,
+          'showPercentChange':  _showPercentChange,
+          'showAbsoluteChange': _showAbsoluteChange,
+          'showVolume':         _showVolume,
+          'showOpeningPrice':   _showOpeningPrice,
+          'showDailyHighLow':   _showDailyHighLow,
+          'separator':          _separator,
         }
       }, SetOptions(merge: true));
-    } catch (e) {
-      // handle error
-    }
+    } catch (_) {}
   }
 
   Future<void> _changePassword() async {
@@ -146,17 +144,19 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
 
   Future<void> _saveAndPop() async {
     await _saveUserFilterPreferences();
-    Navigator.pop(context, {
-      'showSymbol': _showSymbol,
-      'showName': _showName,
-      'showPrice': _showPrice,
-      'showPercentChange': _showPercentChange,
-      'showAbsoluteChange': _showAbsoluteChange,
-      'showVolume': _showVolume,
-      'showOpeningPrice': _showOpeningPrice,
-      'showDailyHighLow': _showDailyHighLow,
-      'separator': _separator,
-    });
+    if (mounted) {
+      Navigator.pop(context, {
+        'showSymbol': _showSymbol,
+        'showName': _showName,
+        'showPrice': _showPrice,
+        'showPercentChange': _showPercentChange,
+        'showAbsoluteChange': _showAbsoluteChange,
+        'showVolume': _showVolume,
+        'showOpeningPrice': _showOpeningPrice,
+        'showDailyHighLow': _showDailyHighLow,
+        'separator': _separator,
+      });
+    }
   }
 
   @override
@@ -165,37 +165,24 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Profile & Filters',
-          style: TextStyle(color: Colors.black),
-        ),
-        iconTheme: const IconThemeData(color: Colors.black),
+        title: const Text('Profile & Filters'),
       ),
-      body: SingleChildScrollView(
+      body: _isLoadingPrefs
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Column(
           children: [
-            if (_isLoadingPrefs)
-              const LinearProgressIndicator(),
-
-            // ========== USER PROFILE ==========
+            // User Profile
             Card(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
               elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'User Profile',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
+                    const Text('User Profile', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     const Divider(),
                     Text('Logged in as: $email'),
                     const SizedBox(height: 10),
@@ -212,18 +199,6 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: _changePassword,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.greenAccent,
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          textStyle: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
                         child: const Text('Change Password'),
                       ),
                     ),
@@ -231,110 +206,61 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
                 ),
               ),
             ),
+            const SizedBox(height: 16),
 
-            // ========== FILTERS ==========
+            // Display Filters
             Card(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
               elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    const Text(
-                      'Display Filters',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
+                    const Text('Display Filters', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     const Divider(),
-                    _buildSwitchTile(
-                      title: 'Show Symbol',
-                      value: _showSymbol,
-                      onChanged: (val) => setState(() => _showSymbol = val),
-                    ),
-                    _buildSwitchTile(
-                      title: 'Show Name',
-                      value: _showName,
-                      onChanged: (val) => setState(() => _showName = val),
-                    ),
-                    _buildSwitchTile(
-                      title: 'Show Current Price',
-                      value: _showPrice,
-                      onChanged: (val) => setState(() => _showPrice = val),
-                    ),
-                    _buildSwitchTile(
-                      title: 'Show % Change',
-                      value: _showPercentChange,
-                      onChanged: (val) => setState(() => _showPercentChange = val),
-                    ),
-                    _buildSwitchTile(
-                      title: 'Show Price Change (Absolute)',
-                      value: _showAbsoluteChange,
-                      onChanged: (val) => setState(() => _showAbsoluteChange = val),
-                    ),
-                    _buildSwitchTile(
-                      title: 'Show Volume',
-                      value: _showVolume,
-                      onChanged: (val) => setState(() => _showVolume = val),
-                    ),
-                    _buildSwitchTile(
-                      title: 'Show Opening Price',
-                      value: _showOpeningPrice,
-                      onChanged: (val) => setState(() => _showOpeningPrice = val),
-                    ),
-                    _buildSwitchTile(
-                      title: 'Show Daily High/Low',
-                      value: _showDailyHighLow,
-                      onChanged: (val) => setState(() => _showDailyHighLow = val),
-                    ),
+                    _buildSwitchTile('Show Symbol', _showSymbol, (v) => setState(() => _showSymbol = v)),
+                    _buildSwitchTile('Show Name', _showName, (v) => setState(() => _showName = v)),
+                    _buildSwitchTile('Show Current Price', _showPrice, (v) => setState(() => _showPrice = v)),
+                    _buildSwitchTile('Show % Change', _showPercentChange, (v) => setState(() => _showPercentChange = v)),
+                    _buildSwitchTile('Show Price Change (Absolute)', _showAbsoluteChange, (v) => setState(() => _showAbsoluteChange = v)),
+                    _buildSwitchTile('Show Volume', _showVolume, (v) => setState(() => _showVolume = v)),
+                    _buildSwitchTile('Show Opening Price', _showOpeningPrice, (v) => setState(() => _showOpeningPrice = v)),
+                    _buildSwitchTile('Show Daily High/Low', _showDailyHighLow, (v) => setState(() => _showDailyHighLow = v)),
                     const Divider(),
-                    const Text(
-                      'Separator Style',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
+                    const Text('Separator Style', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
-                    SizedBox(
-                      height: 120,
-                      child: GridView.count(
-                        crossAxisCount: 3,
-                        mainAxisSpacing: 8,
-                        crossAxisSpacing: 8,
-                        childAspectRatio: 3,
-                        children: [
-                          _buildSeparatorChip(' .... '),
-                          _buildSeparatorChip(', '),
-                          _buildSeparatorChip(' | '),
-                          _buildSeparatorChip(' – '),
-                          _buildSeparatorChip(' / '),
-                          _buildSeparatorChip(' • '),
-                        ],
-                      ),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        _buildSeparatorChip(' .... '),
+                        _buildSeparatorChip(', '),
+                        _buildSeparatorChip(' | '),
+                        _buildSeparatorChip(' – '),
+                        _buildSeparatorChip(' / '),
+                        _buildSeparatorChip(' • '),
+                      ],
                     ),
                   ],
                 ),
               ),
             ),
-
             const SizedBox(height: 16),
-            // ========== SAVE BUTTON ==========
+
+            // Add Stocks
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchPage(forceSelection: false)));
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Add Stocks to Watchlist'),
+            ),
+            const SizedBox(height: 16),
+
+            // Save & Back
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: _saveAndPop,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.blue,
-                  backgroundColor: Colors.transparent,
-                  side: const BorderSide(color: Colors.blue, width: 1.5),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
                 child: const Text('Save & Back'),
               ),
             ),
@@ -344,35 +270,20 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
     );
   }
 
-  Widget _buildSwitchTile({
-    required String title,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
+  Widget _buildSwitchTile(String title, bool value, ValueChanged<bool> onChanged) {
     return SwitchListTile(
-      title: Text(
-        title,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-      ),
+      title: Text(title),
       value: value,
       onChanged: onChanged,
-      contentPadding: EdgeInsets.zero,
-      activeColor: Colors.greenAccent,
     );
   }
 
   Widget _buildSeparatorChip(String sepValue) {
     return ChoiceChip(
-      label: Text(
-        sepValue.trim(),
-        style: const TextStyle(fontWeight: FontWeight.bold),
-      ),
+      label: Text(sepValue.trim()),
       selected: _separator == sepValue,
-      selectedColor: Colors.greenAccent,
-      onSelected: (val) {
-        setState(() {
-          _separator = sepValue;
-        });
+      onSelected: (_) {
+        setState(() => _separator = sepValue);
       },
     );
   }

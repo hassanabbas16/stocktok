@@ -46,17 +46,14 @@ class _SearchPageState extends State<SearchPage> {
       if (data == null) return;
 
       final List<dynamic>? symbols = data['selectedTickerSymbols'] as List<dynamic>?;
-      if (symbols == null) return;
-
-      setState(() {
-        _tempWatchlist = symbols.map((e) => e.toString()).toList();
-      });
+      if (symbols != null) {
+        setState(() => _tempWatchlist = symbols.map((e) => e.toString()).toList());
+      }
     } catch (e) {
       // handle error
     }
   }
 
-  /// Save watchlist to Firestore
   Future<void> _saveWatchlist() async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -68,14 +65,9 @@ class _SearchPageState extends State<SearchPage> {
     }, SetOptions(merge: true));
   }
 
-  /// Perform search:
-  /// 1. Attempt local DataRepository search
-  /// 2. If not found or user wants direct symbol, fetch from TwelveData
   Future<void> _performSearch(String query) async {
     if (query.trim().isEmpty) {
-      setState(() {
-        _searchResults.clear();
-      });
+      setState(() => _searchResults.clear());
       return;
     }
     setState(() => _isLoading = true);
@@ -84,13 +76,10 @@ class _SearchPageState extends State<SearchPage> {
     final localMatches = dataRepo.searchSymbols(query.trim());
     List<StockData> finalResults = [...localMatches];
 
-    // If local matches are empty or user typed an exact symbol not in local
-    // we can fetch from 12data
-    // For demonstration, let's always try 12data for exact symbol if local is missing
+    // If no local match, try fetching from 12Data
     if (localMatches.isEmpty) {
       final fetched = await TwelveDataService.fetchQuote(query.trim().toUpperCase());
       if (fetched != null) {
-        // Also update the repository
         dataRepo.updateSymbolData(fetched);
         finalResults.add(fetched);
       }
@@ -130,41 +119,21 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = _auth.currentUser;
-    final isLoggedIn = user != null;
-
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
         title: TextField(
           controller: _searchController,
-          onChanged: (val) => _performSearch(val),
-          decoration: InputDecoration(
+          onChanged: _performSearch,
+          decoration: const InputDecoration(
             hintText: 'Search symbol...',
-            prefixIcon: const Icon(Icons.search),
-            filled: true,
-            fillColor: Colors.grey[200],
-            contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[400]!, width: 1),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[400]!, width: 1),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.blue, width: 1.5),
-            ),
+            prefixIcon: Icon(Icons.search),
+            border: InputBorder.none,
           ),
         ),
-        iconTheme: const IconThemeData(color: Colors.black),
         actions: [
           IconButton(
             onPressed: _onDone,
-            icon: const Icon(Icons.check, color: Colors.black),
+            icon: const Icon(Icons.check),
           ),
         ],
       ),
@@ -177,7 +146,6 @@ class _SearchPageState extends State<SearchPage> {
         itemBuilder: (ctx, i) {
           final stock = _searchResults[i];
           final isChecked = _tempWatchlist.contains(stock.symbol);
-
           return SearchResultCard(
             stock: stock,
             isChecked: isChecked,

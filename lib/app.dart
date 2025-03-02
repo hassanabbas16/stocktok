@@ -4,27 +4,28 @@ import 'package:overlay_support/overlay_support.dart';
 
 import 'pages/auth_page.dart';
 import 'pages/main_page.dart';
+import 'app_theme.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // We apply minimalistic light/dark themes
     return OverlaySupport.global(
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'StockTok',
-        theme: ThemeData(
-          primarySwatch: Colors.green,
-          visualDensity: VisualDensity.adaptivePlatformDensity,
-        ),
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.system,
         home: const MainWrapper(),
       ),
     );
   }
 }
 
-/// Decides which page to show based on authentication state.
+/// Decides which page to show based on authentication state
 class MainWrapper extends StatelessWidget {
   const MainWrapper({super.key});
 
@@ -39,11 +40,11 @@ class MainWrapper extends StatelessWidget {
           );
         }
         if (snapshot.hasData) {
-          // User is logged in
+          // Logged in
           return const MainPage();
         } else {
           // Not logged in
-          return AuthPage();
+          return const AuthPage();
         }
       },
     );
