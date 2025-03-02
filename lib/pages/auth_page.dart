@@ -2,15 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthPage extends StatefulWidget {
+  const AuthPage({Key? key}) : super(key: key);
+
   @override
-  _AuthPageState createState() => _AuthPageState();
+  State<AuthPage> createState() => _AuthPageState();
 }
 
 class _AuthPageState extends State<AuthPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  bool isLogin = true; // toggle between login & signup
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  bool isLogin = true;
   bool isLoading = false;
 
   void _login() async {
@@ -21,9 +24,8 @@ class _AuthPageState extends State<AuthPage> {
         password: _passwordController.text.trim(),
       );
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Login Successful!')),
+        const SnackBar(content: Text('Login Successful!')),
       );
-      // Clear fields
       _emailController.clear();
       _passwordController.clear();
     } catch (e) {
@@ -43,9 +45,8 @@ class _AuthPageState extends State<AuthPage> {
         password: _passwordController.text.trim(),
       );
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Signup Successful! Please login now.')),
+        const SnackBar(content: Text('Signup Successful! Please login now.')),
       );
-      // Clear fields
       _emailController.clear();
       _passwordController.clear();
       setState(() => isLogin = true);
@@ -64,20 +65,19 @@ class _AuthPageState extends State<AuthPage> {
       backgroundColor: Colors.white,
       body: Center(
         child: isLoading
-            ? CircularProgressIndicator()
+            ? const CircularProgressIndicator()
             : SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Logo
               CircleAvatar(
                 radius: 50,
                 backgroundColor: Colors.greenAccent,
                 child: Icon(Icons.trending_up, size: 50, color: Colors.white),
               ),
-              SizedBox(height: 20),
-              Text(
+              const SizedBox(height: 20),
+              const Text(
                 'StockTok',
                 style: TextStyle(
                   fontSize: 32,
@@ -85,7 +85,7 @@ class _AuthPageState extends State<AuthPage> {
                   color: Colors.black87,
                 ),
               ),
-              SizedBox(height: 40),
+              const SizedBox(height: 40),
 
               // Email
               TextField(
@@ -100,7 +100,7 @@ class _AuthPageState extends State<AuthPage> {
                   ),
                 ),
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
 
               // Password
               TextField(
@@ -116,7 +116,7 @@ class _AuthPageState extends State<AuthPage> {
                 ),
                 obscureText: true,
               ),
-              SizedBox(height: 30),
+              const SizedBox(height: 30),
 
               ElevatedButton(
                 onPressed: isLogin ? _login : _signup,
@@ -125,11 +125,11 @@ class _AuthPageState extends State<AuthPage> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  padding: EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
                 child: Text(
                   isLogin ? 'Login' : 'Sign Up',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
               TextButton(
@@ -140,7 +140,7 @@ class _AuthPageState extends State<AuthPage> {
                   isLogin
                       ? 'Don’t have an account? Sign up'
                       : 'Already have an account? Login',
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.greenAccent,
                     fontWeight: FontWeight.bold,
                   ),

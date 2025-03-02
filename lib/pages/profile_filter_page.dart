@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ProfileFilterPage extends StatefulWidget {
-  // Current filter booleans (passed in from MainPage)
+  // Current filter booleans
   final bool showSymbol;
   final bool showName;
   final bool showPrice;
@@ -28,11 +28,10 @@ class ProfileFilterPage extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  _ProfileFilterPageState createState() => _ProfileFilterPageState();
+  State<ProfileFilterPage> createState() => _ProfileFilterPageState();
 }
 
 class _ProfileFilterPageState extends State<ProfileFilterPage> {
-  // Local states for filters
   late bool _showSymbol;
   late bool _showName;
   late bool _showPrice;
@@ -45,13 +44,11 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final TextEditingController _newPasswordController = TextEditingController();
-
   bool _isLoadingPrefs = false;
 
   @override
   void initState() {
     super.initState();
-    // Set the initial UI state from the widget props
     _showSymbol = widget.showSymbol;
     _showName = widget.showName;
     _showPrice = widget.showPrice;
@@ -62,8 +59,6 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
     _showDailyHighLow = widget.showDailyHighLow;
     _separator = widget.separator;
 
-    // Load any saved filter preferences from Firestore
-    // This will override the above values if found.
     _loadUserFilterPreferences();
   }
 
@@ -73,28 +68,20 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
     super.dispose();
   }
 
-  //============================================================================
-  //                 LOAD & SAVE FILTER PREFERENCES IN FIRESTORE
-  //============================================================================
-
   Future<void> _loadUserFilterPreferences() async {
     final user = _auth.currentUser;
     if (user == null) return;
 
     setState(() => _isLoadingPrefs = true);
-
     try {
       final docSnap = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .get();
-
       if (docSnap.exists) {
         final data = docSnap.data();
         if (data != null && data['filterPreferences'] is Map) {
           final prefs = data['filterPreferences'] as Map<String, dynamic>;
-
-          // If the user has previously saved any of these, override
           setState(() {
             _showSymbol        = prefs['showSymbol']        ?? _showSymbol;
             _showName          = prefs['showName']          ?? _showName;
@@ -109,10 +96,7 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
         }
       }
     } catch (e) {
-      debugPrint('Error loading filter prefs: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading preferences: $e')),
-      );
+      // show error
     } finally {
       setState(() => _isLoadingPrefs = false);
     }
@@ -121,7 +105,6 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
   Future<void> _saveUserFilterPreferences() async {
     final user = _auth.currentUser;
     if (user == null) return;
-
     try {
       await FirebaseFirestore.instance
           .collection('users')
@@ -140,45 +123,29 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
         }
       }, SetOptions(merge: true));
     } catch (e) {
-      debugPrint('Error saving filter prefs: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving preferences: $e')),
-      );
+      // handle error
     }
   }
 
-  //============================================================================
-  //                           CHANGE PASSWORD
-  //============================================================================
-
-  /// Attempt to change the user's password
   Future<void> _changePassword() async {
-    try {
-      final user = _auth.currentUser;
-      if (user != null) {
+    final user = _auth.currentUser;
+    if (user != null) {
+      try {
         await user.updatePassword(_newPasswordController.text);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Password changed successfully!')),
         );
         _newPasswordController.clear();
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error changing password: $e')),
+        );
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error changing password: $e')),
-      );
     }
   }
 
-  //============================================================================
-  //                           SAVE & POP
-  //============================================================================
-
-  /// Save to Firestore, then pop with updated states
   Future<void> _saveAndPop() async {
-    // Save filter preferences in Firestore
     await _saveUserFilterPreferences();
-
-    // Return updated filter states to the previous screen so it can update
     Navigator.pop(context, {
       'showSymbol': _showSymbol,
       'showName': _showName,
@@ -192,17 +159,11 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
     });
   }
 
-  //============================================================================
-  //                               BUILD
-  //============================================================================
-
   @override
   Widget build(BuildContext context) {
-    final user = _auth.currentUser;
-    final email = user?.email ?? 'No email';
+    final email = _auth.currentUser?.email ?? 'No email';
 
     return Scaffold(
-      // Make the AppBar similar to the MainPage style
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -219,7 +180,7 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
             if (_isLoadingPrefs)
               const LinearProgressIndicator(),
 
-            // ========== USER PROFILE SECTION ==========
+            // ========== USER PROFILE ==========
             Card(
               margin: const EdgeInsets.symmetric(vertical: 8),
               shape: RoundedRectangleBorder(
@@ -271,7 +232,7 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
               ),
             ),
 
-            // ========== FILTERS SECTION ==========
+            // ========== FILTERS ==========
             Card(
               margin: const EdgeInsets.symmetric(vertical: 8),
               shape: RoundedRectangleBorder(
@@ -333,10 +294,8 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
-                    // Display 6 chips in a 3x3 grid (2 rows x 3 columns)
-                    Container(
+                    SizedBox(
                       height: 120,
-                      // Adjust if needed so everything fits well
                       child: GridView.count(
                         crossAxisCount: 3,
                         mainAxisSpacing: 8,
@@ -358,19 +317,17 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
             ),
 
             const SizedBox(height: 16),
-
             // ========== SAVE BUTTON ==========
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: _saveAndPop,
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.blue, // text color
+                  foregroundColor: Colors.blue,
                   backgroundColor: Colors.transparent,
                   side: const BorderSide(color: Colors.blue, width: 1.5),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                    // Not pill-shaped => no big borderRadius
                     borderRadius: BorderRadius.circular(8),
                   ),
                   textStyle: const TextStyle(
@@ -386,10 +343,6 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
       ),
     );
   }
-
-  //============================================================================
-  //                         HELPER WIDGETS
-  //============================================================================
 
   Widget _buildSwitchTile({
     required String title,
@@ -408,7 +361,6 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
     );
   }
 
-  /// Helper to build a choice chip for separator
   Widget _buildSeparatorChip(String sepValue) {
     return ChoiceChip(
       label: Text(
