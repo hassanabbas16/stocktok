@@ -5,10 +5,12 @@ import 'pages/auth_page.dart';
 import 'pages/main_page.dart';
 import 'package:overlay_support/overlay_support.dart';
 import 'package:stocktok/services/floating_window_service.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(); // Make sure you have Firebase setup
+  await dotenv.load(fileName: ".env");
+  await Firebase.initializeApp();
   await FloatingWindowService.initialize();
   runApp(MyApp());
 }

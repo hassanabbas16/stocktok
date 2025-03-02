@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ProfileFilterPage extends StatefulWidget {
-  // Current filter booleans (passed in from MainPage)
   final bool showSymbol;
   final bool showName;
   final bool showPrice;
@@ -32,7 +31,6 @@ class ProfileFilterPage extends StatefulWidget {
 }
 
 class _ProfileFilterPageState extends State<ProfileFilterPage> {
-  // Local states for filters
   late bool _showSymbol;
   late bool _showName;
   late bool _showPrice;
@@ -51,7 +49,6 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
   @override
   void initState() {
     super.initState();
-    // Set the initial UI state from the widget props
     _showSymbol = widget.showSymbol;
     _showName = widget.showName;
     _showPrice = widget.showPrice;
@@ -61,9 +58,6 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
     _showOpeningPrice = widget.showOpeningPrice;
     _showDailyHighLow = widget.showDailyHighLow;
     _separator = widget.separator;
-
-    // Load any saved filter preferences from Firestore
-    // This will override the above values if found.
     _loadUserFilterPreferences();
   }
 
@@ -73,46 +67,32 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
     super.dispose();
   }
 
-  //============================================================================
-  //                 LOAD & SAVE FILTER PREFERENCES IN FIRESTORE
-  //============================================================================
-
   Future<void> _loadUserFilterPreferences() async {
     final user = _auth.currentUser;
     if (user == null) return;
-
     setState(() => _isLoadingPrefs = true);
-
     try {
-      final docSnap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-
+      final docSnap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       if (docSnap.exists) {
         final data = docSnap.data();
         if (data != null && data['filterPreferences'] is Map) {
           final prefs = data['filterPreferences'] as Map<String, dynamic>;
-
-          // If the user has previously saved any of these, override
           setState(() {
-            _showSymbol        = prefs['showSymbol']        ?? _showSymbol;
-            _showName          = prefs['showName']          ?? _showName;
-            _showPrice         = prefs['showPrice']         ?? _showPrice;
+            _showSymbol = prefs['showSymbol'] ?? _showSymbol;
+            _showName = prefs['showName'] ?? _showName;
+            _showPrice = prefs['showPrice'] ?? _showPrice;
             _showPercentChange = prefs['showPercentChange'] ?? _showPercentChange;
-            _showAbsoluteChange= prefs['showAbsoluteChange']?? _showAbsoluteChange;
-            _showVolume        = prefs['showVolume']        ?? _showVolume;
-            _showOpeningPrice  = prefs['showOpeningPrice']  ?? _showOpeningPrice;
-            _showDailyHighLow  = prefs['showDailyHighLow']  ?? _showDailyHighLow;
-            _separator         = prefs['separator']         ?? _separator;
+            _showAbsoluteChange = prefs['showAbsoluteChange'] ?? _showAbsoluteChange;
+            _showVolume = prefs['showVolume'] ?? _showVolume;
+            _showOpeningPrice = prefs['showOpeningPrice'] ?? _showOpeningPrice;
+            _showDailyHighLow = prefs['showDailyHighLow'] ?? _showDailyHighLow;
+            _separator = prefs['separator'] ?? _separator;
           });
         }
       }
     } catch (e) {
-      debugPrint('Error loading filter prefs: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading preferences: $e')),
-      );
+      print('Error loading filter preferences: $e');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error loading preferences: $e')));
     } finally {
       setState(() => _isLoadingPrefs = false);
     }
@@ -121,64 +101,41 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
   Future<void> _saveUserFilterPreferences() async {
     final user = _auth.currentUser;
     if (user == null) return;
-
     try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .set({
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'filterPreferences': {
-          'showSymbol':        _showSymbol,
-          'showName':          _showName,
-          'showPrice':         _showPrice,
+          'showSymbol': _showSymbol,
+          'showName': _showName,
+          'showPrice': _showPrice,
           'showPercentChange': _showPercentChange,
-          'showAbsoluteChange':_showAbsoluteChange,
-          'showVolume':        _showVolume,
-          'showOpeningPrice':  _showOpeningPrice,
-          'showDailyHighLow':  _showDailyHighLow,
-          'separator':         _separator,
+          'showAbsoluteChange': _showAbsoluteChange,
+          'showVolume': _showVolume,
+          'showOpeningPrice': _showOpeningPrice,
+          'showDailyHighLow': _showDailyHighLow,
+          'separator': _separator,
         }
       }, SetOptions(merge: true));
     } catch (e) {
-      debugPrint('Error saving filter prefs: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving preferences: $e')),
-      );
+      print('Error saving filter preferences: $e');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error saving preferences: $e')));
     }
   }
 
-  //============================================================================
-  //                           CHANGE PASSWORD
-  //============================================================================
-
-  /// Attempt to change the user's password
   Future<void> _changePassword() async {
     try {
       final user = _auth.currentUser;
       if (user != null) {
         await user.updatePassword(_newPasswordController.text);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Password changed successfully!')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Password changed successfully!')));
         _newPasswordController.clear();
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error changing password: $e')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error changing password: $e')));
     }
   }
 
-  //============================================================================
-  //                           SAVE & POP
-  //============================================================================
-
-  /// Save to Firestore, then pop with updated states
   Future<void> _saveAndPop() async {
-    // Save filter preferences in Firestore
     await _saveUserFilterPreferences();
-
-    // Return updated filter states to the previous screen so it can update
     Navigator.pop(context, {
       'showSymbol': _showSymbol,
       'showName': _showName,
@@ -192,61 +149,64 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
     });
   }
 
-  //============================================================================
-  //                               BUILD
-  //============================================================================
+  Widget _buildSwitchTile({required String title, required bool value, required ValueChanged<bool> onChanged}) {
+    return SwitchListTile(
+      title: Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+      value: value,
+      onChanged: onChanged,
+      contentPadding: EdgeInsets.zero,
+      activeColor: Colors.greenAccent,
+    );
+  }
+
+  Widget _buildSeparatorChip(String sepValue) {
+    return ChoiceChip(
+      label: Text(sepValue.trim(), style: TextStyle(fontWeight: FontWeight.bold)),
+      selected: _separator == sepValue,
+      selectedColor: Colors.greenAccent,
+      onSelected: (val) {
+        setState(() {
+          _separator = sepValue;
+        });
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final user = _auth.currentUser;
     final email = user?.email ?? 'No email';
-
     return Scaffold(
-      // Make the AppBar similar to the MainPage style
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'Profile & Filters',
-          style: TextStyle(color: Colors.black),
-        ),
-        iconTheme: const IconThemeData(color: Colors.black),
+        title: Text('Profile & Filters', style: TextStyle(color: Colors.black)),
+        iconTheme: IconThemeData(color: Colors.black),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Column(
           children: [
-            if (_isLoadingPrefs)
-              const LinearProgressIndicator(),
-
-            // ========== USER PROFILE SECTION ==========
+            if (_isLoadingPrefs) LinearProgressIndicator(),
             Card(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+              margin: EdgeInsets.symmetric(vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               elevation: 4,
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'User Profile',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const Divider(),
+                    Text('User Profile', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Divider(),
                     Text('Logged in as: $email'),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10),
                     TextField(
                       controller: _newPasswordController,
-                      decoration: const InputDecoration(
-                        labelText: 'New Password',
-                        border: OutlineInputBorder(),
-                      ),
+                      decoration: InputDecoration(labelText: 'New Password', border: OutlineInputBorder()),
                       obscureText: true,
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -254,89 +214,40 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.greenAccent,
                           foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          textStyle: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          textStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
-                        child: const Text('Change Password'),
+                        child: Text('Change Password'),
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-
-            // ========== FILTERS SECTION ==========
             Card(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+              margin: EdgeInsets.symmetric(vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               elevation: 4,
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    const Text(
-                      'Display Filters',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const Divider(),
-                    _buildSwitchTile(
-                      title: 'Show Symbol',
-                      value: _showSymbol,
-                      onChanged: (val) => setState(() => _showSymbol = val),
-                    ),
-                    _buildSwitchTile(
-                      title: 'Show Name',
-                      value: _showName,
-                      onChanged: (val) => setState(() => _showName = val),
-                    ),
-                    _buildSwitchTile(
-                      title: 'Show Current Price',
-                      value: _showPrice,
-                      onChanged: (val) => setState(() => _showPrice = val),
-                    ),
-                    _buildSwitchTile(
-                      title: 'Show % Change',
-                      value: _showPercentChange,
-                      onChanged: (val) => setState(() => _showPercentChange = val),
-                    ),
-                    _buildSwitchTile(
-                      title: 'Show Price Change (Absolute)',
-                      value: _showAbsoluteChange,
-                      onChanged: (val) => setState(() => _showAbsoluteChange = val),
-                    ),
-                    _buildSwitchTile(
-                      title: 'Show Volume',
-                      value: _showVolume,
-                      onChanged: (val) => setState(() => _showVolume = val),
-                    ),
-                    _buildSwitchTile(
-                      title: 'Show Opening Price',
-                      value: _showOpeningPrice,
-                      onChanged: (val) => setState(() => _showOpeningPrice = val),
-                    ),
-                    _buildSwitchTile(
-                      title: 'Show Daily High/Low',
-                      value: _showDailyHighLow,
-                      onChanged: (val) => setState(() => _showDailyHighLow = val),
-                    ),
-                    const Divider(),
-                    const Text(
-                      'Separator Style',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    // Display 6 chips in a 3x3 grid (2 rows x 3 columns)
+                    Text('Display Filters', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Divider(),
+                    _buildSwitchTile(title: 'Show Symbol', value: _showSymbol, onChanged: (val) => setState(() => _showSymbol = val)),
+                    _buildSwitchTile(title: 'Show Name', value: _showName, onChanged: (val) => setState(() => _showName = val)),
+                    _buildSwitchTile(title: 'Show Current Price', value: _showPrice, onChanged: (val) => setState(() => _showPrice = val)),
+                    _buildSwitchTile(title: 'Show % Change', value: _showPercentChange, onChanged: (val) => setState(() => _showPercentChange = val)),
+                    _buildSwitchTile(title: 'Show Price Change (Absolute)', value: _showAbsoluteChange, onChanged: (val) => setState(() => _showAbsoluteChange = val)),
+                    _buildSwitchTile(title: 'Show Volume', value: _showVolume, onChanged: (val) => setState(() => _showVolume = val)),
+                    _buildSwitchTile(title: 'Show Opening Price', value: _showOpeningPrice, onChanged: (val) => setState(() => _showOpeningPrice = val)),
+                    _buildSwitchTile(title: 'Show Daily High/Low', value: _showDailyHighLow, onChanged: (val) => setState(() => _showDailyHighLow = val)),
+                    Divider(),
+                    Text('Separator Style', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    SizedBox(height: 8),
                     Container(
                       height: 120,
-                      // Adjust if needed so everything fits well
                       child: GridView.count(
                         crossAxisCount: 3,
                         mainAxisSpacing: 8,
@@ -356,72 +267,25 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
                 ),
               ),
             ),
-
-            const SizedBox(height: 16),
-
-            // ========== SAVE BUTTON ==========
+            SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: _saveAndPop,
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.blue, // text color
+                  foregroundColor: Colors.blue,
                   backgroundColor: Colors.transparent,
-                  side: const BorderSide(color: Colors.blue, width: 1.5),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    // Not pill-shaped => no big borderRadius
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  side: BorderSide(color: Colors.blue, width: 1.5),
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  textStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-                child: const Text('Save & Back'),
+                child: Text('Save & Back'),
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  //============================================================================
-  //                         HELPER WIDGETS
-  //============================================================================
-
-  Widget _buildSwitchTile({
-    required String title,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return SwitchListTile(
-      title: Text(
-        title,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-      ),
-      value: value,
-      onChanged: onChanged,
-      contentPadding: EdgeInsets.zero,
-      activeColor: Colors.greenAccent,
-    );
-  }
-
-  /// Helper to build a choice chip for separator
-  Widget _buildSeparatorChip(String sepValue) {
-    return ChoiceChip(
-      label: Text(
-        sepValue.trim(),
-        style: const TextStyle(fontWeight: FontWeight.bold),
-      ),
-      selected: _separator == sepValue,
-      selectedColor: Colors.greenAccent,
-      onSelected: (val) {
-        setState(() {
-          _separator = sepValue;
-        });
-      },
     );
   }
 }
