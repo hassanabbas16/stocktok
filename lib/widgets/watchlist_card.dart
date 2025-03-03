@@ -11,7 +11,7 @@ class WatchlistCard extends StatelessWidget {
   final bool showVolume;
   final bool showOpeningPrice;
   final bool showDailyHighLow;
-  final bool isChecked;
+  final bool isChecked; // but we won't show it
   final VoidCallback onCheckboxChanged;
 
   const WatchlistCard({
@@ -31,10 +31,9 @@ class WatchlistCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = stock.absoluteChange >= 0 ? Colors.green : Colors.red;
+    final color = (stock.absoluteChange >= 0) ? Colors.green : Colors.red;
 
     return Card(
-      key: key,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -43,24 +42,16 @@ class WatchlistCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // top row: name & checkbox
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                if (showName)
-                  Text(
-                    stock.name,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                Checkbox(
-                  value: isChecked,
-                  onChanged: (_) => onCheckboxChanged(),
+            // top row: name only (removed checkbox)
+            if (showName)
+              Text(
+                stock.name,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
                 ),
-              ],
-            ),
+              ),
+
             if (showSymbol)
               Text(
                 stock.symbol,
@@ -83,12 +74,14 @@ class WatchlistCard extends StatelessWidget {
                 children: [
                   if (showAbsoluteChange)
                     Text(
-                      '${stock.absoluteChange >= 0 ? '+' : ''}${stock.absoluteChange.toStringAsFixed(2)} ',
+                      '${stock.absoluteChange >= 0 ? '+' : ''}'
+                          '${stock.absoluteChange.toStringAsFixed(2)} ',
                       style: TextStyle(color: color, fontSize: 16),
                     ),
                   if (showPercentChange)
                     Text(
-                      '(${stock.percentChange >= 0 ? '+' : ''}${stock.percentChange.toStringAsFixed(2)}%)',
+                      '(${stock.percentChange >= 0 ? '+' : ''}'
+                          '${stock.percentChange.toStringAsFixed(2)}%)',
                       style: TextStyle(color: color, fontSize: 16),
                     ),
                 ],

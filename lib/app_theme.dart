@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-// Example sea/kelly green, #008000
 const MaterialColor kStockGreen = MaterialColor(
   0xFF008000,
   <int, Color>{
@@ -9,7 +8,7 @@ const MaterialColor kStockGreen = MaterialColor(
     200: Color(0xFF80C9A1),
     300: Color(0xFF4DB47C),
     400: Color(0xFF26A362),
-    500: Color(0xFF008000), // primary
+    500: Color(0xFF008000),
     600: Color(0xFF007400),
     700: Color(0xFF006300),
     800: Color(0xFF005300),
@@ -44,10 +43,6 @@ class AppTheme {
           textStyle: const TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: kStockGreen,
-        foregroundColor: Colors.white,
-      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.grey[200],
@@ -56,7 +51,6 @@ class AppTheme {
           borderSide: BorderSide.none,
         ),
       ),
-      // more customizations if desired...
     );
   }
 
@@ -86,10 +80,6 @@ class AppTheme {
           textStyle: const TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: kStockGreen,
-        foregroundColor: Colors.white,
-      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.grey[800],
@@ -98,7 +88,6 @@ class AppTheme {
           borderSide: BorderSide.none,
         ),
       ),
-      // more customizations if desired...
     );
   }
 }

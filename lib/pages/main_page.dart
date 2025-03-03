@@ -9,10 +9,12 @@ import '../services/pip_service.dart';
 import '../services/floating_window_service.dart';
 import '../services/data_repository.dart';
 import '../services/twelve_data_service.dart';
+import '../services/polygon_service.dart';
+
 import '../widgets/pip_ticker_view.dart';
 import '../widgets/watchlist_card.dart';
-import '../pages/profile_filter_page.dart';
-import '../pages/search_page.dart';
+import 'profile_filter_page.dart';
+import 'search_page.dart';
 import '../models/stock_data.dart';
 
 class MainPage extends StatefulWidget {
@@ -28,7 +30,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   bool _isFloatingWindowActive = false;
   bool _isLoading = false;
 
-  // Ticker-only filter preferences
+  // Ticker filter prefs
   bool _tickerShowSymbol         = true;
   bool _tickerShowName           = true;
   bool _tickerShowPrice          = true;
@@ -39,21 +41,20 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   bool _tickerShowDailyHighLow   = false;
   String _separator              = ' .... ';
 
-  // Watchlist
   List<String> _watchlistSymbols = [];
   List<StockData> _watchlistData = [];
 
-  // For searching the watchlist
   final TextEditingController _searchController = TextEditingController();
-
   String get _searchQuery => _searchController.text.trim().toLowerCase();
+
+  Timer? _updateTimer;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    // PiP setup
+    // PiP
     Future.delayed(const Duration(milliseconds: 100), () {
       PiPService.setIsMainPage(true);
     });
@@ -63,9 +64,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       if (call.method == 'onPiPChanged') {
         final isInPiP = call.arguments as bool;
         if (mounted) {
-          setState(() {
-            _isFloatingWindowActive = isInPiP;
-          });
+          setState(() => _isFloatingWindowActive = isInPiP);
         }
       }
     });
@@ -76,10 +75,25 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   Future<void> _initialLoad() async {
     setState(() => _isLoading = true);
 
+    // 1) Combine data from Polygon (two days)
+    final dataRepo = Provider.of<DataRepository>(context, listen: false);
+    try {
+      final day2 = _getYesterdaysDate(1);
+      final day1 = _getYesterdaysDate(2);
+      final combined = await PolygonService.fetchTwoDaysCombined(
+        day1: day1,
+        day2: day2,
+      );
+      dataRepo.addPolygonData(combined);
+    } catch (_) {}
+
+    // 2) Load prefs
     await _loadUserFilterPreferences();
+
+    // 3) Load watchlist
     await _loadUserWatchlist();
 
-    // If watchlist empty => require selection
+    // 4) If watchlist empty => search
     if (_watchlistSymbols.isEmpty && user != null) {
       if (mounted) {
         Navigator.pushReplacement(
@@ -90,30 +104,54 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       return;
     }
 
-    // Update watchlist from 12Data every minute
-    Timer.periodic(const Duration(minutes: 1), (_) {
+    // 5) Refresh from 12Data right now
+    await _refreshWatchlist();
+
+    // 6) Also do it every minute
+    _updateTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       _refreshWatchlist();
     });
 
-    await _refreshWatchlist();
     setState(() => _isLoading = false);
+  }
+
+  String _getYesterdaysDate(int daysAgo) {
+    final now = DateTime.now().subtract(Duration(days: daysAgo));
+    final y = now.year;
+    final m = now.month.toString().padLeft(2, '0');
+    final d = now.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
   }
 
   @override
   void dispose() {
+    _updateTimer?.cancel();
     PiPService.setIsMainPage(false);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // e.g. on resumed
+  // Refresh watchlist items from TwelveData IMMEDIATELY (for each symbol!)
+  Future<void> _refreshWatchlist() async {
+    final dataRepo = Provider.of<DataRepository>(context, listen: false);
+    List<StockData> updated = [];
+
+    for (final symbol in _watchlistSymbols) {
+      // Force immediate fetch from 12Data:
+      final fetched = await TwelveDataService.fetchQuote(symbol);
+      if (fetched != null) {
+        dataRepo.updateSymbolData(fetched);
+        updated.add(fetched);
+      } else {
+        // fallback to local data if fetch fails
+        final local = dataRepo.getSymbolData(symbol);
+        if (local != null) updated.add(local);
+      }
+    }
+
+    setState(() => _watchlistData = updated);
   }
 
-  // ===========================================================================
-  // LOAD / SAVE
-  // ===========================================================================
   Future<void> _loadUserFilterPreferences() async {
     if (user == null) return;
     try {
@@ -170,33 +208,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     }, SetOptions(merge: true));
   }
 
-  // ===========================================================================
-  // REFRESH FROM 12Data
-  // ===========================================================================
-  Future<void> _refreshWatchlist() async {
-    final dataRepo = Provider.of<DataRepository>(context, listen: false);
-    List<StockData> updated = [];
-
-    for (final symbol in _watchlistSymbols) {
-      TwelveDataService.enqueueSymbol(symbol);
-      final cached = dataRepo.getSymbolData(symbol);
-      if (cached != null) {
-        updated.add(cached);
-      } else {
-        final fetched = await TwelveDataService.fetchQuote(symbol);
-        if (fetched != null) {
-          dataRepo.updateSymbolData(fetched);
-          updated.add(fetched);
-        }
-      }
-    }
-
-    setState(() => _watchlistData = updated);
-  }
-
-  // ===========================================================================
-  // FILTER
-  // ===========================================================================
   List<StockData> get filteredWatchlist {
     if (_searchQuery.isEmpty) return _watchlistData;
     return _watchlistData.where((s) {
@@ -205,9 +216,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     }).toList();
   }
 
-  // ===========================================================================
-  // REORDER
-  // ===========================================================================
+  // If user reorders the watchlist
   void _onReorder(int oldIndex, int newIndex) async {
     if (newIndex > oldIndex) {
       newIndex -= 1;
@@ -222,24 +231,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     await _saveUserWatchlist();
   }
 
-  // ===========================================================================
-  // TOGGLE WATCHLIST MEMBERSHIP
-  // ===========================================================================
-  void _toggleSymbol(StockData stock) async {
-    setState(() {
-      if (_watchlistSymbols.contains(stock.symbol)) {
-        _watchlistSymbols.remove(stock.symbol);
-      } else {
-        _watchlistSymbols.add(stock.symbol);
-      }
-    });
-    await _saveUserWatchlist();
-    await _refreshWatchlist();
-  }
-
-  // ===========================================================================
-  // PIP
-  // ===========================================================================
   void _toggleFloatingWindow() async {
     if (_watchlistData.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -255,9 +246,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     }
   }
 
-  // ===========================================================================
-  // NAV
-  // ===========================================================================
   Future<void> _gotoProfileFilters() async {
     PiPService.setIsMainPage(false);
     final result = await Navigator.push(
@@ -293,16 +281,13 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     }
   }
 
-  // ===========================================================================
-  // BUILD
-  // ===========================================================================
   @override
   Widget build(BuildContext context) {
-    // If user is in PiP mode, show the PiP ticker
     if (_isFloatingWindowActive) {
+      // Show PiP ticker
       return Scaffold(
         body: PipTickerView(
-          stocks: _watchlistData, // reflect any reorder
+          stocks: _watchlistData,
           displayPrefs: {
             'showSymbol': _tickerShowSymbol,
             'showName': _tickerShowName,
@@ -320,7 +305,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
     return Scaffold(
       appBar: AppBar(
-        // Replacing title with a search bar
         title: Container(
           height: 40,
           margin: const EdgeInsets.symmetric(vertical: 4),
@@ -349,11 +333,15 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           : filteredWatchlist.isEmpty
           ? Center(
         child: ElevatedButton(
-          onPressed: () {
-            Navigator.push(
+          onPressed: () async {
+            // Instead of pushReplacement, we push
+            final gotNewItems = await Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const SearchPage(forceSelection: false)),
             );
+            if (gotNewItems == true && mounted) {
+              await _refreshWatchlist();
+            }
           },
           child: const Text('Add Symbols to Watchlist'),
         ),
@@ -365,7 +353,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           onReorder: _onReorder,
           itemBuilder: (context, index) {
             final stock = filteredWatchlist[index];
-            final isChecked = _watchlistSymbols.contains(stock.symbol);
             return Dismissible(
               key: ValueKey(stock.symbol),
               background: Container(
@@ -393,8 +380,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                 showVolume: _tickerShowVolume,
                 showOpeningPrice: _tickerShowOpeningPrice,
                 showDailyHighLow: _tickerShowDailyHighLow,
-                isChecked: isChecked,
-                onCheckboxChanged: () => _toggleSymbol(stock),
+                // NO CHECKBOX
+                isChecked: false,
+                onCheckboxChanged: () {},
               ),
             );
           },

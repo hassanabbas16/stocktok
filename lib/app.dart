@@ -1,24 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:overlay_support/overlay_support.dart';
+import 'package:provider/provider.dart';
 
 import 'pages/auth_page.dart';
 import 'pages/main_page.dart';
 import 'app_theme.dart';
+import 'services/data_repository.dart';
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+/// We let the user’s preference (saved in Firestore) override system theme.
+/// We store that preference in DataRepository or a new “ThemeProvider.”
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Optionally listen for changes if we store theme in DataRepository
+    // For brevity, we won't implement a separate provider.
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // We apply minimalistic light/dark themes
+    final dataRepo = Provider.of<DataRepository>(context);
+
     return OverlaySupport.global(
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'StockTok',
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.system,
+        // We store user’s theme preference in dataRepo.darkMode
+        themeMode: dataRepo.darkMode ? ThemeMode.dark : ThemeMode.light,
         home: const MainWrapper(),
       ),
     );

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 
+import '../services/data_repository.dart';
 import 'search_page.dart';
 
 class ProfileFilterPage extends StatefulWidget {
@@ -47,6 +49,9 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
   final TextEditingController _newPasswordController = TextEditingController();
   bool _isLoadingPrefs = false;
 
+  // We'll track darkMode locally
+  bool _tempDarkMode = false;
+
   @override
   void initState() {
     super.initState();
@@ -59,6 +64,9 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
     _showOpeningPrice   = widget.showOpeningPrice;
     _showDailyHighLow   = widget.showDailyHighLow;
     _separator          = widget.separator;
+
+    final dataRepo = Provider.of<DataRepository>(context, listen: false);
+    _tempDarkMode = dataRepo.darkMode;
 
     _loadUserFilterPreferences();
   }
@@ -92,6 +100,11 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
             _showOpeningPrice   = prefs['showOpeningPrice']  ?? _showOpeningPrice;
             _showDailyHighLow   = prefs['showDailyHighLow']  ?? _showDailyHighLow;
             _separator          = prefs['separator']         ?? _separator;
+            if (prefs.containsKey('darkMode')) {
+              _tempDarkMode = prefs['darkMode'];
+              final dataRepo = Provider.of<DataRepository>(context, listen: false);
+              dataRepo.darkMode = _tempDarkMode; // immediate apply
+            }
           });
         }
       }
@@ -102,6 +115,7 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
     }
   }
 
+  /// We call this whenever the user toggles or at final save
   Future<void> _saveUserFilterPreferences() async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -120,6 +134,7 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
           'showOpeningPrice':   _showOpeningPrice,
           'showDailyHighLow':   _showDailyHighLow,
           'separator':          _separator,
+          'darkMode':           _tempDarkMode,
         }
       }, SetOptions(merge: true));
     } catch (_) {}
@@ -142,6 +157,7 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
     }
   }
 
+  /// "Save & Back" still relevant for other toggles, but dark mode is immediate
   Future<void> _saveAndPop() async {
     await _saveUserFilterPreferences();
     if (mounted) {
@@ -162,6 +178,7 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
   @override
   Widget build(BuildContext context) {
     final email = _auth.currentUser?.email ?? 'No email';
+    final dataRepo = Provider.of<DataRepository>(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -231,6 +248,7 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
+                      runSpacing: 8,
                       children: [
                         _buildSeparatorChip(' .... '),
                         _buildSeparatorChip(', '),
@@ -246,10 +264,40 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
             ),
             const SizedBox(height: 16),
 
+            // Dark Mode immediate
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    const Text('Dark Mode', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const Spacer(),
+                    Switch(
+                      value: _tempDarkMode,
+                      onChanged: (val) async {
+                        setState(() => _tempDarkMode = val);
+
+                        // Immediately apply to dataRepo
+                        dataRepo.darkMode = val;
+
+                        // Immediately store in Firestore
+                        await _saveUserFilterPreferences();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
             // Add Stocks
             ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchPage(forceSelection: false)));
+              onPressed: () async {
+                await Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchPage(forceSelection: false)));
+                // After search done, pop all the way back to main if you want
+                Navigator.pop(context);
               },
               icon: const Icon(Icons.add),
               label: const Text('Add Stocks to Watchlist'),
@@ -274,7 +322,9 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
     return SwitchListTile(
       title: Text(title),
       value: value,
-      onChanged: onChanged,
+      onChanged: (val) {
+        setState(() => onChanged(val));
+      },
     );
   }
 

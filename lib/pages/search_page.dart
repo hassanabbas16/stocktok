@@ -7,7 +7,6 @@ import '../models/stock_data.dart';
 import '../services/data_repository.dart';
 import '../services/twelve_data_service.dart';
 import '../widgets/search_result_card.dart';
-import 'main_page.dart';
 
 class SearchPage extends StatefulWidget {
   final bool forceSelection;
@@ -26,10 +25,16 @@ class _SearchPageState extends State<SearchPage> {
   bool _isLoading = false;
   final _auth = FirebaseAuth.instance;
 
+  bool _watchlistModified = false;
+
   @override
   void initState() {
     super.initState();
     _loadUserWatchlist();
+
+    // By default, show all polygon symbols
+    final dataRepo = Provider.of<DataRepository>(context, listen: false);
+    _searchResults = dataRepo.polygonCache.values.toList();
   }
 
   Future<void> _loadUserWatchlist() async {
@@ -49,9 +54,7 @@ class _SearchPageState extends State<SearchPage> {
       if (symbols != null) {
         setState(() => _tempWatchlist = symbols.map((e) => e.toString()).toList());
       }
-    } catch (e) {
-      // handle error
-    }
+    } catch (_) {}
   }
 
   Future<void> _saveWatchlist() async {
@@ -66,21 +69,26 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Future<void> _performSearch(String query) async {
+    final dataRepo = Provider.of<DataRepository>(context, listen: false);
+
     if (query.trim().isEmpty) {
-      setState(() => _searchResults.clear());
+      setState(() {
+        _searchResults = dataRepo.polygonCache.values.toList();
+      });
       return;
     }
+
     setState(() => _isLoading = true);
 
-    final dataRepo = Provider.of<DataRepository>(context, listen: false);
+    // local matches
     final localMatches = dataRepo.searchSymbols(query.trim());
     List<StockData> finalResults = [...localMatches];
 
-    // If no local match, try fetching from 12Data
-    if (localMatches.isEmpty) {
-      final fetched = await TwelveDataService.fetchQuote(query.trim().toUpperCase());
-      if (fetched != null) {
-        dataRepo.updateSymbolData(fetched);
+    // also fetch from 12Data
+    final fetched = await TwelveDataService.fetchQuote(query.trim().toUpperCase());
+    if (fetched != null) {
+      dataRepo.updateSymbolData(fetched);
+      if (!finalResults.any((s) => s.symbol == fetched.symbol)) {
         finalResults.add(fetched);
       }
     }
@@ -93,6 +101,7 @@ class _SearchPageState extends State<SearchPage> {
 
   void _onCheckboxChanged(StockData stock) {
     setState(() {
+      _watchlistModified = true; // user changed the watchlist
       if (_tempWatchlist.contains(stock.symbol)) {
         _tempWatchlist.remove(stock.symbol);
       } else {
@@ -109,12 +118,7 @@ class _SearchPageState extends State<SearchPage> {
       return;
     }
     await _saveWatchlist();
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const MainPage()),
-      );
-    }
+    Navigator.pop(context, _watchlistModified);
   }
 
   @override
@@ -140,7 +144,7 @@ class _SearchPageState extends State<SearchPage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _searchResults.isEmpty
-          ? const Center(child: Text('No results yet. Type to search.'))
+          ? const Center(child: Text('No results found.'))
           : ListView.builder(
         itemCount: _searchResults.length,
         itemBuilder: (ctx, i) {

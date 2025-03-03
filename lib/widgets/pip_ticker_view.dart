@@ -1,23 +1,18 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/stock_data.dart';
-import '../pages/main_page.dart';
 
 class PipTickerView extends StatefulWidget {
   final List<StockData> stocks;
   final Map<String, bool> displayPrefs;
   final String separator;
 
-  final Color textColor;    // color for non-numeric text
-  final String adText;      // text to insert as ad
-
+  // We'll forcibly do black text in light mode, white in dark mode
   const PipTickerView({
     Key? key,
     required this.stocks,
     required this.displayPrefs,
     required this.separator,
-    this.textColor = Colors.white,
-    this.adText = 'Brought to you by Emergitech Solutions',
   }) : super(key: key);
 
   @override
@@ -26,13 +21,12 @@ class PipTickerView extends StatefulWidget {
 
 class _PipTickerViewState extends State<PipTickerView> with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
-  late Timer _scrollTimer;
-  late Timer _adInsertTimer;
+  Timer? _scrollTimer;
 
-  static const double _scrollSpeed = 1.0;          // pixels per step
+  static const double _scrollSpeed = 1.0;
   static const Duration _scrollInterval = Duration(milliseconds: 15);
 
-  final List<String> _segments = [];
+  final List<String> _liveSegments = [];
 
   @override
   void initState() {
@@ -41,24 +35,52 @@ class _PipTickerViewState extends State<PipTickerView> with WidgetsBindingObserv
 
     _buildSegments();
     _startScrolling();
-    _startAdInsertion();
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _scrollTimer?.cancel();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // if user hits Home, we remain in PiP
+    super.didChangeAppLifecycleState(state);
+  }
+
+  /// Build an infinite loop by:
+  /// 1) converting each watchlist item to a text segment
+  /// 2) appending an ad at the end of each set
+  /// 3) duplicating the entire set to ensure a seamless loop
   void _buildSegments() {
-    _segments.clear();
+    final baseSegments = <String>[];
+
     for (final stock in widget.stocks) {
-      _segments.add(_buildDisplayText(stock));
+      baseSegments.add(_buildDisplayText(stock));
     }
+
+    // Insert an ad item after watchlist
+    baseSegments.add('[AD => Brought to you by Emergitech Solutions]');
+
+    // now duplicate
+    _liveSegments.clear();
+    // so we have watchlist+ad, watchlist+ad
+    _liveSegments.addAll(baseSegments);
+    _liveSegments.addAll(baseSegments);
   }
 
-  // Build the text from displayPrefs
   String _buildDisplayText(StockData stock) {
     final dp = widget.displayPrefs;
     List<String> parts = [];
 
     if (dp['showSymbol'] ?? true) parts.add(stock.symbol);
     if (dp['showName'] ?? false) parts.add(stock.name);
-    if (dp['showPrice'] ?? true) parts.add('\$${stock.currentPrice.toStringAsFixed(2)}');
+    if (dp['showPrice'] ?? true) {
+      parts.add('\$${stock.currentPrice.toStringAsFixed(2)}');
+    }
     if (dp['showPercentChange'] ?? true) {
       final sign = stock.percentChange >= 0 ? '+' : '';
       parts.add('$sign${stock.percentChange.toStringAsFixed(2)}%');
@@ -82,89 +104,60 @@ class _PipTickerViewState extends State<PipTickerView> with WidgetsBindingObserv
 
   void _startScrolling() {
     _scrollTimer = Timer.periodic(_scrollInterval, (_) {
-      if (_scrollController.hasClients) {
-        _scrollController.jumpTo(_scrollController.offset + _scrollSpeed);
-        final maxScroll = _scrollController.position.maxScrollExtent;
-        if (_scrollController.offset >= maxScroll) {
-          _scrollController.jumpTo(0);
-        }
+      if (!_scrollController.hasClients) return;
+
+      final maxScroll = _scrollController.position.maxScrollExtent;
+      final newPos = _scrollController.offset + _scrollSpeed;
+
+      // infinite loop approach: if we exceed half, jump back by half
+      if (newPos >= maxScroll / 2) {
+        _scrollController.jumpTo(newPos - (maxScroll / 2));
+      } else {
+        _scrollController.jumpTo(newPos);
       }
     });
   }
 
-  void _startAdInsertion() {
-    _adInsertTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      setState(() {
-        _segments.add(widget.adText);
-      });
-    });
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    if (state == AppLifecycleState.resumed) {
-      // When PiP is exited
-      if (mounted && context.mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const MainPage()),
-        );
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _scrollTimer.cancel();
-    _adInsertTimer.cancel();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  // Decide coloring
   bool _isNumericWord(String word) {
-    // e.g. if word has digits, $, or %
     return RegExp(r'[\d\$\.\%]').hasMatch(word);
   }
 
   @override
   Widget build(BuildContext context) {
-    final backgroundColor = Theme.of(context).brightness == Brightness.dark
-        ? Colors.black
-        : Colors.white;
+    final brightness = Theme.of(context).brightness;
+    final nonNumericColor = (brightness == Brightness.dark) ? Colors.white : Colors.black;
+    final bgColor = (brightness == Brightness.dark) ? Colors.black : Colors.white;
 
     return Container(
-      color: backgroundColor,
-      width: MediaQuery.of(context).size.width,
-      child: SingleChildScrollView(
-        controller: _scrollController,
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: _segments.map((seg) {
-            return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 40),
-              child: _buildSegmentRichText(seg),
-            );
-          }).toList(),
+      color: bgColor,
+      child: Center(
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: _liveSegments.map((seg) {
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                child: _buildSegmentRichText(seg, nonNumericColor),
+              );
+            }).toList(),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildSegmentRichText(String segment) {
+  Widget _buildSegmentRichText(String segment, Color nonNumericColor) {
     final words = segment.split(' ');
     final List<TextSpan> spans = [];
 
     for (var word in words) {
-      // Are we seeing a positive or negative number?
-      bool isPositive = word.contains('+') && !word.contains('Vol');
-      bool isNegative = word.contains('-') && !word.contains('Vol');
+      bool isPositive = word.contains('+') && !word.contains('Vol') && !word.contains('AD');
+      bool isNegative = word.contains('-') && !word.contains('Vol') && !word.contains('AD');
 
-      Color color = widget.textColor;
+      Color color = nonNumericColor;
       if (_isNumericWord(word)) {
-        // color numeric
-        color = isPositive ? Colors.green : (isNegative ? Colors.red : widget.textColor);
+        color = isPositive ? Colors.green : (isNegative ? Colors.red : nonNumericColor);
       }
 
       spans.add(TextSpan(
@@ -173,8 +166,6 @@ class _PipTickerViewState extends State<PipTickerView> with WidgetsBindingObserv
       ));
     }
 
-    return RichText(
-      text: TextSpan(children: spans),
-    );
+    return RichText(text: TextSpan(children: spans));
   }
 }
