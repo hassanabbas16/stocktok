@@ -12,9 +12,12 @@ class _AuthPageState extends State<AuthPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _obscurePassword = true;
 
   bool isLogin = true;
   bool isLoading = false;
+
+  final Color primaryColor = const Color(0xFFE5F64A);
 
   void _login() async {
     setState(() => isLoading = true);
@@ -61,81 +64,147 @@ class _AuthPageState extends State<AuthPage> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final height = MediaQuery.of(context).size.height;
+
     return Scaffold(
-      // We rely on Theme.of(context).scaffoldBackgroundColor now,
-      // so remove backgroundColor override.
+      backgroundColor: Colors.white,
       body: Center(
         child: isLoading
             ? const CircularProgressIndicator()
             : SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          padding: EdgeInsets.symmetric(horizontal: width * 0.08),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircleAvatar(
-                radius: 50,
-                // Use the theme’s primaryColor or keep your own color
-                backgroundColor: Theme.of(context).primaryColor,
-                child: const Icon(Icons.trending_up, size: 50, color: Colors.white),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Image.asset('assets/icons/iconf.png', height: height * 0.05),
+                  const SizedBox(width: 6),
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'Stock',
+                          style: TextStyle(fontSize: width * 0.09, fontWeight: FontWeight.bold, color: Colors.black),
+                        ),
+                        TextSpan(
+                          text: 'Tok',
+                          style: TextStyle(fontSize: width * 0.09, fontWeight: FontWeight.bold, color: primaryColor),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 20),
-              Text(
-                'StockTok',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 40),
 
-              // Email TextField
+              const SizedBox(height: 32),
+
+              // Dynamic Heading (Login/Signup)
+              Text(
+                isLogin ? 'Login' : 'Signup',
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Email Field
               TextField(
                 controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.email_outlined),
+                  hintText: 'Email',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey[100],
                 ),
                 keyboardType: TextInputType.emailAddress,
               ),
-              const SizedBox(height: 20),
 
-              // Password TextField
+              const SizedBox(height: 12),
+
+              // Password Field
               TextField(
                 controller: _passwordController,
-                decoration: const InputDecoration(
-                  labelText: 'Password',
-                ),
-                obscureText: true,
-              ),
-              const SizedBox(height: 30),
-
-              // Primary Button (Login / Sign Up)
-              ElevatedButton(
-                onPressed: isLogin ? _login : _signup,
-                style: ElevatedButton.styleFrom(
-                  // Rely on theme for colors
-                  minimumSize: const Size.fromHeight(48),
-                  shape: RoundedRectangleBorder(
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
+                  hintText: 'Password',
+                  border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
+                  filled: true,
+                  fillColor: Colors.grey[100],
                 ),
-                child: Text(
-                  isLogin ? 'Login' : 'Sign Up',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                obscureText: _obscurePassword,
+              ),
+              if (isLogin)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () {},
+                    child: const Text(
+                      'Forgot Password?',
+                      style: TextStyle(color: Colors.redAccent, fontSize: 12),
+                    ),
+                  ),
+                )
+              else
+                const SizedBox(height: 12), // Only during signup
+
+              const SizedBox(height: 6),
+
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: isLogin ? _login : _signup,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    isLogin ? 'LOGIN' : 'SIGNUP',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
                 ),
               ),
-              TextButton(
-                onPressed: () {
-                  setState(() => isLogin = !isLogin);
-                },
-                style: TextButton.styleFrom(
-                  // Rely on theme for color
-                  minimumSize: const Size.fromHeight(40),
-                ),
-                child: Text(
-                  isLogin
-                      ? 'Don’t have an account? Sign up'
-                      : 'Already have an account? Login',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    isLogin ? "Don't have an account?" : "Already have an account?",
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      setState(() => isLogin = !isLogin);
+                    },
+                    child: Text(
+                      isLogin ? 'Register' : 'Login',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
