@@ -307,6 +307,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         ),
       );
     }
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       // AppBar with Logo + "StockTok" centered
@@ -317,15 +318,14 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         title: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset(
-              'assets/icons/iconf.png',
-              height: 28,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'StockTok',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
+            Image.asset('assets/icons/iconf.png', height: 28, color: isDark ? Colors.white : null),
+            const SizedBox(width: 6),
+            Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(text: 'Stock', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+                  TextSpan(text: 'Tok', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: const Color(0xFFE5F64A))),
+                ],
               ),
             ),
           ],
@@ -402,8 +402,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           },
         ),
       ),
-
-      // BOTTOM NAV with search bar & icons
       bottomNavigationBar: Material(
         elevation: 8, // Provide a drop shadow
         child: Container(

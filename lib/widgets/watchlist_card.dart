@@ -89,7 +89,7 @@ class _WatchlistCardState extends State<WatchlistCard> {
                 children: [
                   if (widget.showAbsoluteChange)
                     Text(
-                      '\$${widget.stock.absoluteChange >= 0 ? '+' : ''}'
+                      '${widget.stock.absoluteChange >= 0 ? '+' : ''}'
                           '${widget.stock.absoluteChange.toStringAsFixed(2)} ',
                       style: TextStyle(color: color, fontSize: 14),
                     ),
