@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/stock_data.dart';
 
-class WatchlistCard extends StatelessWidget {
+class WatchlistCard extends StatefulWidget {
   final StockData stock;
+
+  // Filter toggles
   final bool showSymbol;
   final bool showName;
   final bool showPrice;
@@ -11,7 +13,8 @@ class WatchlistCard extends StatelessWidget {
   final bool showVolume;
   final bool showOpeningPrice;
   final bool showDailyHighLow;
-  final bool isChecked; // but we won't show it
+
+  final bool isChecked; // we won’t display a checkbox, but kept for logic
   final VoidCallback onCheckboxChanged;
 
   const WatchlistCard({
@@ -30,76 +33,142 @@ class WatchlistCard extends StatelessWidget {
   }) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    final color = (stock.absoluteChange >= 0) ? Colors.green : Colors.red;
+  State<WatchlistCard> createState() => _WatchlistCardState();
+}
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+class _WatchlistCardState extends State<WatchlistCard> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = (widget.stock.absoluteChange >= 0) ? Colors.green : Colors.red;
+
+    // Top row: name/symbol on the left, price + changes on the right
+    Widget topRow = Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        // Left side: name + symbol
+        Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // top row: name only (removed checkbox)
-            if (showName)
+            if (widget.showName)
               Text(
-                stock.name,
+                widget.stock.name,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            if (widget.showSymbol)
+              Text(
+                widget.stock.symbol,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                   fontSize: 18,
                 ),
               ),
+          ],
+        ),
 
-            if (showSymbol)
+        // Right side: price & changes
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (widget.showPrice)
               Text(
-                stock.symbol,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 24,
-                ),
-              ),
-            if (showPrice)
-              Text(
-                '\$${stock.currentPrice.toStringAsFixed(2)}',
+                '\$${widget.stock.currentPrice.toStringAsFixed(2)}',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: color,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-            if (showAbsoluteChange || showPercentChange)
+            if (widget.showAbsoluteChange || widget.showPercentChange)
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (showAbsoluteChange)
+                  if (widget.showAbsoluteChange)
                     Text(
-                      '${stock.absoluteChange >= 0 ? '+' : ''}'
-                          '${stock.absoluteChange.toStringAsFixed(2)} ',
-                      style: TextStyle(color: color, fontSize: 16),
+                      '\$${widget.stock.absoluteChange >= 0 ? '+' : ''}'
+                          '${widget.stock.absoluteChange.toStringAsFixed(2)} ',
+                      style: TextStyle(color: color, fontSize: 14),
                     ),
-                  if (showPercentChange)
+                  if (widget.showPercentChange)
                     Text(
-                      '(${stock.percentChange >= 0 ? '+' : ''}'
-                          '${stock.percentChange.toStringAsFixed(2)}%)',
-                      style: TextStyle(color: color, fontSize: 16),
+                      '(${widget.stock.percentChange >= 0 ? '+' : ''}'
+                          '${widget.stock.percentChange.toStringAsFixed(2)}%)',
+                      style: TextStyle(color: color, fontSize: 14),
                     ),
                 ],
               ),
-            if (showVolume)
-              Text('Vol: ${stock.volume}',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
-            if (showOpeningPrice)
-              Text('Open: \$${stock.openPrice.toStringAsFixed(2)}',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
-            if (showDailyHighLow)
-              Text(
-                'H: \$${stock.highPrice.toStringAsFixed(2)}  L: \$${stock.lowPrice.toStringAsFixed(2)}',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-              ),
+          ],
+        ),
+      ],
+    );
+
+    // Expanded row: only if toggles and user taps
+    Widget? expandedRow;
+    if (_isExpanded) {
+      List<Widget> extraItems = [];
+      if (widget.showVolume) {
+        extraItems.add(_buildExtraItem('Vol', widget.stock.volume.toString()));
+      }
+      if (widget.showOpeningPrice) {
+        extraItems.add(_buildExtraItem('Open', '\$${widget.stock.openPrice.toStringAsFixed(2)}'));
+      }
+      if (widget.showDailyHighLow) {
+        extraItems.add(
+          _buildExtraItem(
+            'H/L',
+            '\$${widget.stock.highPrice.toStringAsFixed(2)} / \$${widget.stock.lowPrice.toStringAsFixed(2)}',
+          ),
+        );
+      }
+
+      if (extraItems.isNotEmpty) {
+        expandedRow = Padding(
+          padding: const EdgeInsets.only(top: 8.0),
+          child: Wrap(
+            alignment: WrapAlignment.center, // center them
+            spacing: 12,
+            runSpacing: 8,
+            children: extraItems,
+          ),
+        );
+      }
+    }
+
+    return GestureDetector(
+      onTap: () => setState(() => _isExpanded = !_isExpanded),
+      child: Container(
+        color: Colors.transparent, // no card bg color
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            topRow,
+            if (expandedRow != null) expandedRow,
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildExtraItem(String label, String value) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '$label: ',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+      ],
     );
   }
 }
