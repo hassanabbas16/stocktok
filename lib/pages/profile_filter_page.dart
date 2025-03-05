@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../services/data_repository.dart';
 import 'search_page.dart';
+import 'auth_page.dart';
 
 class ProfileFilterPage extends StatefulWidget {
   final bool showSymbol;
@@ -109,7 +110,7 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
         }
       }
     } catch (_) {
-      // handle error
+      // handle error if needed
     } finally {
       setState(() => _isLoadingPrefs = false);
     }
@@ -137,7 +138,9 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
           'darkMode':           _tempDarkMode,
         }
       }, SetOptions(merge: true));
-    } catch (_) {}
+    } catch (_) {
+      // handle error if needed
+    }
   }
 
   Future<void> _changePassword() async {
@@ -175,6 +178,17 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
     }
   }
 
+  /// Logout method: sign out and navigate to AuthPage
+  Future<void> _logout() async {
+    await _auth.signOut();
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const AuthPage()),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final email = _auth.currentUser?.email ?? 'No email';
@@ -199,7 +213,20 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('User Profile', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Row(
+                      children: [
+                        const Text(
+                          'User Profile',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.exit_to_app),
+                          tooltip: 'Logout',
+                          onPressed: _logout,
+                        )
+                      ],
+                    ),
                     const Divider(),
                     Text('Logged in as: $email'),
                     const SizedBox(height: 10),

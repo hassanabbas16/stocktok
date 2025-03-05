@@ -62,7 +62,8 @@ class _AuthPageState extends State<AuthPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      // We rely on Theme.of(context).scaffoldBackgroundColor now,
+      // so remove backgroundColor override.
       body: Center(
         child: isLoading
             ? const CircularProgressIndicator()
@@ -73,59 +74,48 @@ class _AuthPageState extends State<AuthPage> {
             children: [
               CircleAvatar(
                 radius: 50,
-                backgroundColor: Colors.greenAccent,
-                child: Icon(Icons.trending_up, size: 50, color: Colors.white),
+                // Use the theme’s primaryColor or keep your own color
+                backgroundColor: Theme.of(context).primaryColor,
+                child: const Icon(Icons.trending_up, size: 50, color: Colors.white),
               ),
               const SizedBox(height: 20),
-              const Text(
+              Text(
                 'StockTok',
-                style: TextStyle(
-                  fontSize: 32,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
                 ),
               ),
               const SizedBox(height: 40),
 
-              // Email
+              // Email TextField
               TextField(
                 controller: _emailController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Email',
-                  filled: true,
-                  fillColor: Colors.grey[200],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12.0),
-                    borderSide: BorderSide.none,
-                  ),
                 ),
+                keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 20),
 
-              // Password
+              // Password TextField
               TextField(
                 controller: _passwordController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Password',
-                  filled: true,
-                  fillColor: Colors.grey[200],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12.0),
-                    borderSide: BorderSide.none,
-                  ),
                 ),
                 obscureText: true,
               ),
               const SizedBox(height: 30),
 
+              // Primary Button (Login / Sign Up)
               ElevatedButton(
                 onPressed: isLogin ? _login : _signup,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.greenAccent,
+                  // Rely on theme for colors
+                  minimumSize: const Size.fromHeight(48),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
                 child: Text(
                   isLogin ? 'Login' : 'Sign Up',
@@ -136,14 +126,15 @@ class _AuthPageState extends State<AuthPage> {
                 onPressed: () {
                   setState(() => isLogin = !isLogin);
                 },
+                style: TextButton.styleFrom(
+                  // Rely on theme for color
+                  minimumSize: const Size.fromHeight(40),
+                ),
                 child: Text(
                   isLogin
                       ? 'Don’t have an account? Sign up'
                       : 'Already have an account? Login',
-                  style: const TextStyle(
-                    color: Colors.greenAccent,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
             ],
