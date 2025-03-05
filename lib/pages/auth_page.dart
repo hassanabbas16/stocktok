@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'main_page.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({Key? key}) : super(key: key);
@@ -10,6 +11,7 @@ class AuthPage extends StatefulWidget {
 
 class _AuthPageState extends State<AuthPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
@@ -17,9 +19,10 @@ class _AuthPageState extends State<AuthPage> {
   bool isLogin = true;
   bool isLoading = false;
 
+  // "Tok" text & main button color
   final Color primaryColor = const Color(0xFFE5F64A);
 
-  void _login() async {
+  Future<void> _login() async {
     setState(() => isLoading = true);
     try {
       await _auth.signInWithEmailAndPassword(
@@ -29,8 +32,14 @@ class _AuthPageState extends State<AuthPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Login Successful!')),
       );
-      _emailController.clear();
-      _passwordController.clear();
+
+      // After successful login, go to MainPage
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainPage()),
+        );
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.toString())),
@@ -40,7 +49,7 @@ class _AuthPageState extends State<AuthPage> {
     }
   }
 
-  void _signup() async {
+  Future<void> _signup() async {
     setState(() => isLoading = true);
     try {
       await _auth.createUserWithEmailAndPassword(
@@ -52,6 +61,8 @@ class _AuthPageState extends State<AuthPage> {
       );
       _emailController.clear();
       _passwordController.clear();
+
+      // After successful signup, switch to login
       setState(() => isLogin = true);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -62,36 +73,164 @@ class _AuthPageState extends State<AuthPage> {
     }
   }
 
+  /// Draggable bottom sheet for "Forgot Password?"
+  void _showForgotPasswordSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.4,
+          minChildSize: 0.3,
+          maxChildSize: 0.8,
+          builder: (context, scrollController) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            final _resetEmailController = TextEditingController();
+
+            return Container(
+              decoration: BoxDecoration(
+                color: isDark ? Colors.grey[900] : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: const EdgeInsets.all(16),
+              child: SingleChildScrollView(
+                controller: scrollController,
+                child: Column(
+                  children: [
+                    Text(
+                      'Reset Password',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _resetEmailController,
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.email_outlined),
+                        hintText: 'Enter your email',
+                        filled: true,
+                        fillColor: isDark ? Colors.grey[800] : Colors.grey[100],
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () async {
+                        final resetEmail = _resetEmailController.text.trim();
+                        if (resetEmail.isEmpty) return;
+                        try {
+                          await _auth.sendPasswordResetEmail(email: resetEmail);
+                          Navigator.pop(context); // close bottom sheet
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Password reset email sent!')),
+                          );
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e')),
+                          );
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Send Reset Email'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// Helper widget to build text fields for Email/Password
+  Widget _buildTextField(
+      TextEditingController controller,
+      String hint,
+      IconData prefixIcon,
+      bool isDark, {
+        bool isPassword = false,
+      }) {
+    return TextField(
+      controller: controller,
+      obscureText: isPassword ? _obscurePassword : false,
+      decoration: InputDecoration(
+        prefixIcon: Icon(prefixIcon),
+        suffixIcon: isPassword
+            ? IconButton(
+          icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+          onPressed: () {
+            setState(() => _obscurePassword = !_obscurePassword);
+          },
+        )
+            : null,
+        hintText: hint,
+        filled: true,
+        fillColor: isDark ? Colors.grey[800] : Colors.grey[100],
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+      ),
+      style: TextStyle(color: isDark ? Colors.white : Colors.black),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final width = MediaQuery.of(context).size.width;
     final height = MediaQuery.of(context).size.height;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Center(
         child: isLoading
             ? const CircularProgressIndicator()
             : SingleChildScrollView(
           padding: EdgeInsets.symmetric(horizontal: width * 0.08),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // App Logo & Title
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Image.asset('assets/icons/iconf.png', height: height * 0.05),
+                  Image.asset(
+                    'assets/icons/iconf.png',
+                    height: height * 0.05,
+                    color: isDark ? Colors.white : null,
+                  ),
                   const SizedBox(width: 6),
                   Text.rich(
                     TextSpan(
                       children: [
                         TextSpan(
                           text: 'Stock',
-                          style: TextStyle(fontSize: width * 0.09, fontWeight: FontWeight.bold, color: Colors.black),
+                          style: TextStyle(
+                            fontSize: width * 0.09,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
                         ),
                         TextSpan(
                           text: 'Tok',
-                          style: TextStyle(fontSize: width * 0.09, fontWeight: FontWeight.bold, color: primaryColor),
+                          style: TextStyle(
+                            fontSize: width * 0.09,
+                            fontWeight: FontWeight.bold,
+                            color: primaryColor,
+                          ),
                         ),
                       ],
                     ),
@@ -101,60 +240,32 @@ class _AuthPageState extends State<AuthPage> {
 
               const SizedBox(height: 32),
 
-              // Dynamic Heading (Login/Signup)
+              // Login or Signup Title
               Text(
                 isLogin ? 'Login' : 'Signup',
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black),
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
               ),
 
               const SizedBox(height: 24),
 
               // Email Field
-              TextField(
-                controller: _emailController,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.email_outlined),
-                  hintText: 'Email',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey[100],
-                ),
-                keyboardType: TextInputType.emailAddress,
-              ),
+              _buildTextField(_emailController, 'Email', Icons.email_outlined, isDark),
 
               const SizedBox(height: 12),
 
               // Password Field
-              TextField(
-                controller: _passwordController,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
-                  ),
-                  hintText: 'Password',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey[100],
-                ),
-                obscureText: _obscurePassword,
-              ),
+              _buildTextField(_passwordController, 'Password', Icons.lock_outline, isDark, isPassword: true),
+
+              // Forgot Password
               if (isLogin)
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: () {},
+                    onPressed: _showForgotPasswordSheet,
                     child: const Text(
                       'Forgot Password?',
                       style: TextStyle(color: Colors.redAccent, fontSize: 12),
@@ -162,10 +273,11 @@ class _AuthPageState extends State<AuthPage> {
                   ),
                 )
               else
-                const SizedBox(height: 12), // Only during signup
+                const SizedBox(height: 12),
 
               const SizedBox(height: 6),
 
+              // Login / Signup Button
               SizedBox(
                 width: double.infinity,
                 height: 50,
@@ -184,23 +296,25 @@ class _AuthPageState extends State<AuthPage> {
                   ),
                 ),
               ),
+
+              // Switch between Login & Signup
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     isLogin ? "Don't have an account?" : "Already have an account?",
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    ),
                   ),
                   TextButton(
-                    onPressed: () {
-                      setState(() => isLogin = !isLogin);
-                    },
+                    onPressed: () => setState(() => isLogin = !isLogin),
                     child: Text(
                       isLogin ? 'Register' : 'Login',
-                      style: const TextStyle(
-                        fontSize: 14,
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                        color: isDark ? Colors.white : Colors.black,
                       ),
                     ),
                   ),
