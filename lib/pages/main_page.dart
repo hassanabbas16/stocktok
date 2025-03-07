@@ -288,7 +288,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    // If in PiP mode, just show the PiP Ticker
     if (_isFloatingWindowActive) {
       return Scaffold(
         body: PipTickerView(
@@ -323,8 +322,22 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
             Text.rich(
               TextSpan(
                 children: [
-                  TextSpan(text: 'Stock', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
-                  TextSpan(text: 'Tok', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: const Color(0xFFE5F64A))),
+                  TextSpan(
+                    text: 'Stock',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                  const TextSpan(
+                    text: 'Tok',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFE5F64A),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -359,7 +372,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
             return Column(
               key: ValueKey(stock.symbol),
               children: [
-                // Dismissible area
                 Dismissible(
                   key: ValueKey('dismiss_${stock.symbol}'),
                   background: Container(
@@ -391,11 +403,13 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                     onCheckboxChanged: () {},
                   ),
                 ),
-                // Divider after card
+                // Divider with same width as the card (16 px indent on each side)
                 Container(
-                  width: double.infinity,
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
                   height: 1,
-                  color: Colors.grey[300],
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.grey.shade600
+                      : Colors.grey.shade300,
                 ),
               ],
             );
@@ -403,32 +417,39 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         ),
       ),
       bottomNavigationBar: Material(
-        elevation: 8, // Provide a drop shadow
+        elevation: 8,
         child: Container(
           height: 60,
           color: Theme.of(context).cardColor,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Row(
             children: [
-              // Expanded search bar
               Expanded(
                 child: Container(
                   height: 40,
                   margin: const EdgeInsets.symmetric(vertical: 8),
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).canvasColor,
+                    color: Colors.transparent,
                     borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.grey.shade600
+                          : Colors.grey.shade300,
+                      width: 1,
+                    ),
                   ),
                   child: TextField(
                     controller: _searchController,
                     onChanged: (_) => setState(() {}),
                     decoration: const InputDecoration(
-                      hintText: 'Filter watchlist...',
+                      hintText: 'Search...',
                       border: InputBorder.none,
-                      icon: Icon(Icons.search),
+                      filled: true, // Enables background color
+                      fillColor: Colors.transparent, // Makes background transparent
                     ),
-                  ),
+                    style: TextStyle(color: Colors.black), // Adjust text color as needed
+                  )
                 ),
               ),
               // PiP Toggle
@@ -439,9 +460,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                 ),
                 onPressed: _toggleFloatingWindow,
               ),
-              // Profile (outlined) icon
+              // Profile icon with circular outline
               IconButton(
-                icon: Icon(Icons.person_outline, color: Colors.grey[600]),
+                iconSize: 24,
+                icon: Icon(Icons.person, color: Colors.grey[600]),
                 onPressed: _gotoProfileFilters,
               ),
             ],

@@ -129,7 +129,7 @@ class _WatchlistCardState extends State<WatchlistCard> {
         expandedRow = Padding(
           padding: const EdgeInsets.only(top: 8.0),
           child: Wrap(
-            alignment: WrapAlignment.center, // center them
+            alignment: WrapAlignment.center,
             spacing: 12,
             runSpacing: 8,
             children: extraItems,
@@ -147,7 +147,10 @@ class _WatchlistCardState extends State<WatchlistCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             topRow,
-            if (expandedRow != null) expandedRow,
+            if (expandedRow != null)
+              Center(
+                child: expandedRow,
+              ),
           ],
         ),
       ),
