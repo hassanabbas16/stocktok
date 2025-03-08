@@ -101,6 +101,8 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
             _showOpeningPrice   = prefs['showOpeningPrice']  ?? _showOpeningPrice;
             _showDailyHighLow   = prefs['showDailyHighLow']  ?? _showDailyHighLow;
             _separator          = prefs['separator']         ?? _separator;
+
+            // Dark mode
             if (prefs.containsKey('darkMode')) {
               _tempDarkMode = prefs['darkMode'];
               final dataRepo = Provider.of<DataRepository>(context, listen: false);
@@ -191,33 +193,55 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
 
   @override
   Widget build(BuildContext context) {
-    final email = _auth.currentUser?.email ?? 'No email';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final dataRepo = Provider.of<DataRepository>(context);
 
+    final width = MediaQuery.of(context).size.width;
+    final height = MediaQuery.of(context).size.height;
+
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Profile & Filters'),
       ),
       body: _isLoadingPrefs
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: EdgeInsets.symmetric(
+          horizontal: width * 0.04,
+          vertical: height * 0.02,
+        ),
         child: Column(
           children: [
             // User Profile
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            Container(
+              width: double.infinity,
+              margin: EdgeInsets.only(bottom: height * 0.02),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.grey[900] : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 6,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(width * 0.04),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        const Text(
+                        Text(
                           'User Profile',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: width * 0.045,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
                         ),
                         const Spacer(),
                         IconButton(
@@ -228,39 +252,77 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
                       ],
                     ),
                     const Divider(),
-                    Text('Logged in as: $email'),
-                    const SizedBox(height: 10),
+                    Text(
+                      'Logged in as: ${_auth.currentUser?.email ?? 'No email'}',
+                      style: TextStyle(
+                        fontSize: width * 0.04,
+                        color: isDark ? Colors.white70 : Colors.grey[800],
+                      ),
+                    ),
+                    SizedBox(height: height * 0.01),
                     TextField(
                       controller: _newPasswordController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'New Password',
-                        border: OutlineInputBorder(),
+                        labelStyle: TextStyle(fontSize: width * 0.04),
+                        border: const OutlineInputBorder(),
                       ),
                       obscureText: true,
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: height * 0.01),
                     SizedBox(
                       width: double.infinity,
+                      height: height * 0.055,
                       child: ElevatedButton(
                         onPressed: _changePassword,
-                        child: const Text('Change Password'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE5F64A), // brand color
+                          foregroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          'Change Password',
+                          style: TextStyle(
+                            fontSize: width * 0.042,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 16),
 
             // Display Filters
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            Container(
+              width: double.infinity,
+              margin: EdgeInsets.only(bottom: height * 0.02),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.grey[900] : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 6,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(width * 0.04),
                 child: Column(
                   children: [
-                    const Text('Display Filters', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(
+                      'Display Filters',
+                      style: TextStyle(
+                        fontSize: width * 0.045,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
                     const Divider(),
                     _buildSwitchTile('Show Symbol', _showSymbol, (v) => setState(() => _showSymbol = v)),
                     _buildSwitchTile('Show Name', _showName, (v) => setState(() => _showName = v)),
@@ -271,8 +333,18 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
                     _buildSwitchTile('Show Opening Price', _showOpeningPrice, (v) => setState(() => _showOpeningPrice = v)),
                     _buildSwitchTile('Show Daily High/Low', _showDailyHighLow, (v) => setState(() => _showDailyHighLow = v)),
                     const Divider(),
-                    const Text('Separator Style', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Separator Style',
+                        style: TextStyle(
+                          fontSize: width * 0.04,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: height * 0.01),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -289,26 +361,41 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
 
             // Dark Mode immediate
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            Container(
+              width: double.infinity,
+              margin: EdgeInsets.only(bottom: height * 0.02),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.grey[900] : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 6,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(width * 0.04),
                 child: Row(
                   children: [
-                    const Text('Dark Mode', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text(
+                      'Dark Mode',
+                      style: TextStyle(
+                        fontSize: width * 0.04,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
                     const Spacer(),
                     Switch(
                       value: _tempDarkMode,
                       onChanged: (val) async {
                         setState(() => _tempDarkMode = val);
-
                         // Immediately apply to dataRepo
                         dataRepo.darkMode = val;
-
                         // Immediately store in Firestore
                         await _saveUserFilterPreferences();
                       },
@@ -317,26 +404,65 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
 
             // Add Stocks
-            ElevatedButton.icon(
-              onPressed: () async {
-                await Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchPage(forceSelection: false)));
-                // After search done, pop all the way back to main if you want
-                Navigator.pop(context);
-              },
-              icon: const Icon(Icons.add),
-              label: const Text('Add Stocks to Watchlist'),
+            SizedBox(
+              width: double.infinity,
+              height: height * 0.055,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const SearchPage(forceSelection: false),
+                    ),
+                  );
+                  // After search done, you can pop back if you like,
+                  // but here we only do a single pop from the filters
+                  Navigator.pop(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE5F64A),
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: const Icon(Icons.add),
+                label: Text(
+                  'Add Stocks to Watchlist',
+                  style: TextStyle(
+                    fontSize: width * 0.042,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: height * 0.02),
 
             // Save & Back
             SizedBox(
               width: double.infinity,
+              height: height * 0.05,
               child: OutlinedButton(
                 onPressed: _saveAndPop,
-                child: const Text('Save & Back'),
+                style: OutlinedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  side: BorderSide(
+                    color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+                    width: 1.5,
+                  ),
+                ),
+                child: Text(
+                  'Save & Back',
+                  style: TextStyle(
+                    fontSize: width * 0.042,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                ),
               ),
             ),
           ],
@@ -346,8 +472,17 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
   }
 
   Widget _buildSwitchTile(String title, bool value, ValueChanged<bool> onChanged) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final width = MediaQuery.of(context).size.width;
+
     return SwitchListTile(
-      title: Text(title),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontSize: width * 0.04,
+          color: isDark ? Colors.white : Colors.black,
+        ),
+      ),
       value: value,
       onChanged: (val) {
         setState(() => onChanged(val));
@@ -356,9 +491,13 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
   }
 
   Widget _buildSeparatorChip(String sepValue) {
+    final isSelected = _separator == sepValue;
     return ChoiceChip(
-      label: Text(sepValue.trim()),
-      selected: _separator == sepValue,
+      label: Text(
+        sepValue.trim(),
+        style: TextStyle(fontWeight: FontWeight.bold),
+      ),
+      selected: isSelected,
       onSelected: (_) {
         setState(() => _separator = sepValue);
       },

@@ -20,11 +20,11 @@ class SearchPage extends StatefulWidget {
 class _SearchPageState extends State<SearchPage> {
   final _searchController = TextEditingController();
   List<String> _tempWatchlist = [];
+  // This list will show all stocks/crypto fetched from Polygon.
   List<StockData> _searchResults = [];
 
   bool _isLoading = false;
   final _auth = FirebaseAuth.instance;
-
   bool _watchlistModified = false;
 
   @override
@@ -32,11 +32,12 @@ class _SearchPageState extends State<SearchPage> {
     super.initState();
     _loadUserWatchlist();
 
-    // By default, show all polygon symbols
+    // Show all stocks/crypto from the complete polygon cache.
     final dataRepo = Provider.of<DataRepository>(context, listen: false);
     _searchResults = dataRepo.polygonCache.values.toList();
   }
 
+  /// Load existing watchlist from Firestore so we know which symbols are checked.
   Future<void> _loadUserWatchlist() async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -57,6 +58,7 @@ class _SearchPageState extends State<SearchPage> {
     } catch (_) {}
   }
 
+  /// Save updated watchlist back to Firestore.
   Future<void> _saveWatchlist() async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -68,9 +70,11 @@ class _SearchPageState extends State<SearchPage> {
     }, SetOptions(merge: true));
   }
 
+  /// Called on typing inside the search field.
   Future<void> _performSearch(String query) async {
     final dataRepo = Provider.of<DataRepository>(context, listen: false);
 
+    // If query is empty, show the full polygon cache.
     if (query.trim().isEmpty) {
       setState(() {
         _searchResults = dataRepo.polygonCache.values.toList();
@@ -80,11 +84,11 @@ class _SearchPageState extends State<SearchPage> {
 
     setState(() => _isLoading = true);
 
-    // local matches
+    // 1) Local matches from polygonCache.
     final localMatches = dataRepo.searchSymbols(query.trim());
     List<StockData> finalResults = [...localMatches];
 
-    // also fetch from 12Data
+    // 2) Also fetch from TwelveData to see if a single ticker quote can be found.
     final fetched = await TwelveDataService.fetchQuote(query.trim().toUpperCase());
     if (fetched != null) {
       dataRepo.updateSymbolData(fetched);
@@ -99,9 +103,10 @@ class _SearchPageState extends State<SearchPage> {
     });
   }
 
+  /// Called when user toggles a watchlist checkbox.
   void _onCheckboxChanged(StockData stock) {
     setState(() {
-      _watchlistModified = true; // user changed the watchlist
+      _watchlistModified = true;
       if (_tempWatchlist.contains(stock.symbol)) {
         _tempWatchlist.remove(stock.symbol);
       } else {
@@ -110,6 +115,7 @@ class _SearchPageState extends State<SearchPage> {
     });
   }
 
+  /// Called when user taps the AppBar check icon.
   Future<void> _onDone() async {
     if (widget.forceSelection && _tempWatchlist.length < 3) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -118,20 +124,41 @@ class _SearchPageState extends State<SearchPage> {
       return;
     }
     await _saveWatchlist();
-    Navigator.pop(context, _watchlistModified);
+    // Return the updated watchlist to be merged on the main page.
+    Navigator.pop(context, _tempWatchlist);
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final width = MediaQuery.of(context).size.width;
+
     return Scaffold(
       appBar: AppBar(
-        title: TextField(
-          controller: _searchController,
-          onChanged: _performSearch,
-          decoration: const InputDecoration(
-            hintText: 'Search symbol...',
-            prefixIcon: Icon(Icons.search),
-            border: InputBorder.none,
+        title: Container(
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isDark ? Colors.grey.shade600 : Colors.grey.shade300,
+              width: 1,
+            ),
+          ),
+          child: TextField(
+            controller: _searchController,
+            onChanged: _performSearch,
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.black87,
+              fontSize: width * 0.04,
+            ),
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.search),
+              hintText: 'Search symbol...',
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(vertical: 8),
+            ),
           ),
         ),
         actions: [
@@ -150,10 +177,19 @@ class _SearchPageState extends State<SearchPage> {
         itemBuilder: (ctx, i) {
           final stock = _searchResults[i];
           final isChecked = _tempWatchlist.contains(stock.symbol);
-          return SearchResultCard(
-            stock: stock,
-            isChecked: isChecked,
-            onCheckboxChanged: () => _onCheckboxChanged(stock),
+          return Column(
+            children: [
+              SearchResultCard(
+                stock: stock,
+                isChecked: isChecked,
+                onCheckboxChanged: () => _onCheckboxChanged(stock),
+              ),
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                height: 1,
+                color: isDark ? Colors.grey[600] : Colors.grey[300],
+              ),
+            ],
           );
         },
       ),

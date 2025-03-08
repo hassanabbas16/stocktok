@@ -26,11 +26,12 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   final user = FirebaseAuth.instance.currentUser;
+  StreamSubscription<DocumentSnapshot>? _watchlistSubscription;
 
   bool _isFloatingWindowActive = false;
   bool _isLoading = false;
 
-  // Ticker filter prefs
+  // Ticker filter preferences.
   bool _tickerShowSymbol         = true;
   bool _tickerShowName           = true;
   bool _tickerShowPrice          = true;
@@ -54,145 +55,196 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    // Mark that we're on main page (for PiP-service usage)
+    // Mark that we're on the main page (for PiP-service usage).
     Future.delayed(const Duration(milliseconds: 100), () {
       PiPService.setIsMainPage(true);
     });
 
-    // Listen for PiP changes from platform channel
+    // Listen for PiP changes from the platform channel.
     const channel = MethodChannel('com.stocktok/pip');
     channel.setMethodCallHandler((call) async {
       if (call.method == 'onPiPChanged') {
         final isInPiP = call.arguments as bool;
-        if (mounted) {
-          setState(() => _isFloatingWindowActive = isInPiP);
-        }
+        if (mounted) setState(() => _isFloatingWindowActive = isInPiP);
       }
     });
 
     _initialLoad();
+
+    // Listen for real-time changes in Firestore for the user's watchlist.
+    if (user != null) {
+      _watchlistSubscription = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user!.uid)
+          .snapshots()
+          .listen((docSnap) async {
+        if (docSnap.exists) {
+          final data = docSnap.data();
+          if (data != null) {
+            final List<dynamic>? symbols = data['selectedTickerSymbols'] as List<dynamic>?;
+            if (symbols != null) {
+              setState(() {
+                _watchlistSymbols = symbols.map((e) => e.toString()).toList();
+              });
+              await _refreshWatchlist();
+            }
+          }
+        }
+      });
+    }
+  }
+
+  /// When the app resumes, update watchlist data.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _updateFromFirestore();
+    }
+  }
+
+  Future<void> _updateFromFirestore() async {
+    setState(() => _isLoading = true);
+    await _loadUserWatchlist();
+    await _refreshWatchlist();
+    setState(() => _isLoading = false);
   }
 
   Future<void> _initialLoad() async {
     setState(() => _isLoading = true);
 
-    // 1) Combine data from Polygon (two days)
+    // (1) Fetch data from Polygon for the last two trading weekdays.
     final dataRepo = Provider.of<DataRepository>(context, listen: false);
     try {
-      final day2 = _getYesterdaysDate(1);
-      final day1 = _getYesterdaysDate(2);
-      final combined = await PolygonService.fetchTwoDaysCombined(
-        day1: day1,
-        day2: day2,
-      );
-      dataRepo.addPolygonData(combined);
-    } catch (_) {}
+      final twoDays = _getLastTwoTradingDays();
+      final day1 = _formatDate(twoDays.item1);
+      final day2 = _formatDate(twoDays.item2);
 
-    // 2) Load user filter prefs
+      final combined = await PolygonService.fetchTwoDaysCombined(day1: day1, day2: day2);
+      dataRepo.addPolygonData(combined);
+      print('--- MAIN PAGE: after Polygon fetch, dataRepo has ${dataRepo.polygonCache.length} symbols.');
+    } catch (e) {
+      print('--- Error in _initialLoad fetching from Polygon: $e');
+    }
+
+    // (2) Load user filter preferences.
     await _loadUserFilterPreferences();
 
-    // 3) Load watchlist
+    // (3) Load watchlist from Firestore.
     await _loadUserWatchlist();
 
-    // 4) If watchlist is empty => force user to pick stocks
+    // (4) If watchlist is empty, force user to pick stocks.
     if (_watchlistSymbols.isEmpty && user != null) {
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const SearchPage(forceSelection: true)),
-        );
+        await _openSearchPage(forceSelection: true);
       }
       return;
     }
 
-    // 5) Refresh from 12Data now
+    // (5) Refresh data from TwelveData.
     await _refreshWatchlist();
 
-    // 6) Also refresh every minute
-    _updateTimer = Timer.periodic(const Duration(minutes: 1), (_) {
-      _refreshWatchlist();
-    });
+    // (6) Also refresh every minute.
+    _updateTimer = Timer.periodic(const Duration(minutes: 1), (_) => _refreshWatchlist());
 
     setState(() => _isLoading = false);
   }
 
-  String _getYesterdaysDate(int daysAgo) {
-    final now = DateTime.now().subtract(Duration(days: daysAgo));
-    final y = now.year;
-    final m = now.month.toString().padLeft(2, '0');
-    final d = now.day.toString().padLeft(2, '0');
-    return '$y-$m-$d';
+  /// When returning from the search page, reload watchlist from Firestore.
+  Future<void> _openSearchPage({bool forceSelection = false}) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => SearchPage(forceSelection: forceSelection)),
+    );
+    await _updateFromFirestore();
   }
 
   @override
   void dispose() {
     _updateTimer?.cancel();
+    _watchlistSubscription?.cancel();
     PiPService.setIsMainPage(false);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
-  /// Refresh watchlist items from TwelveData
+  Tuple2<DateTime, DateTime> _getLastTwoTradingDays() {
+    DateTime now = DateTime.now();
+    DateTime day2candidate = now.subtract(const Duration(days: 1));
+    while (_isWeekend(day2candidate)) {
+      day2candidate = day2candidate.subtract(const Duration(days: 1));
+    }
+    final day2 = day2candidate;
+
+    DateTime day1candidate = day2.subtract(const Duration(days: 1));
+    while (_isWeekend(day1candidate)) {
+      day1candidate = day1candidate.subtract(const Duration(days: 1));
+    }
+    final day1 = day1candidate;
+
+    return Tuple2<DateTime, DateTime>(day1, day2);
+  }
+
+  bool _isWeekend(DateTime dt) {
+    return dt.weekday == DateTime.saturday || dt.weekday == DateTime.sunday;
+  }
+
+  String _formatDate(DateTime dt) {
+    final y = dt.year;
+    final m = dt.month.toString().padLeft(2, '0');
+    final d = dt.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
+  }
+
+  /// Refresh watchlist items from TwelveData.
   Future<void> _refreshWatchlist() async {
     final dataRepo = Provider.of<DataRepository>(context, listen: false);
     List<StockData> updated = [];
-
     for (final symbol in _watchlistSymbols) {
       final fetched = await TwelveDataService.fetchQuote(symbol);
       if (fetched != null) {
         dataRepo.updateSymbolData(fetched);
         updated.add(fetched);
       } else {
-        // fallback to local data if fetch fails
         final local = dataRepo.getSymbolData(symbol);
         if (local != null) updated.add(local);
       }
     }
-
     setState(() => _watchlistData = updated);
   }
 
-  /// Load the user's filter preferences from Firestore
+  /// Load user filter preferences from Firestore.
   Future<void> _loadUserFilterPreferences() async {
     if (user == null) return;
     try {
-      final docSnap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user!.uid)
-          .get();
+      final docSnap = await FirebaseFirestore.instance.collection('users').doc(user!.uid).get();
       if (!docSnap.exists) return;
       final data = docSnap.data();
       if (data == null) return;
-
       final prefs = data['filterPreferences'];
       if (prefs is Map<String, dynamic>) {
         setState(() {
-          _tickerShowSymbol         = prefs['showSymbol']        ?? _tickerShowSymbol;
-          _tickerShowName           = prefs['showName']          ?? _tickerShowName;
-          _tickerShowPrice          = prefs['showPrice']         ?? _tickerShowPrice;
+          _tickerShowSymbol         = prefs['showSymbol'] ?? _tickerShowSymbol;
+          _tickerShowName           = prefs['showName'] ?? _tickerShowName;
+          _tickerShowPrice          = prefs['showPrice'] ?? _tickerShowPrice;
           _tickerShowPercentChange  = prefs['showPercentChange'] ?? _tickerShowPercentChange;
-          _tickerShowAbsoluteChange = prefs['showAbsoluteChange']?? _tickerShowAbsoluteChange;
-          _tickerShowVolume         = prefs['showVolume']        ?? _tickerShowVolume;
-          _tickerShowOpeningPrice   = prefs['showOpeningPrice']  ?? _tickerShowOpeningPrice;
-          _tickerShowDailyHighLow   = prefs['showDailyHighLow']  ?? _tickerShowDailyHighLow;
-          _separator                = prefs['separator']         ?? _separator;
+          _tickerShowAbsoluteChange = prefs['showAbsoluteChange'] ?? _tickerShowAbsoluteChange;
+          _tickerShowVolume         = prefs['showVolume'] ?? _tickerShowVolume;
+          _tickerShowOpeningPrice   = prefs['showOpeningPrice'] ?? _tickerShowOpeningPrice;
+          _tickerShowDailyHighLow   = prefs['showDailyHighLow'] ?? _tickerShowDailyHighLow;
+          _separator                = prefs['separator'] ?? _separator;
         });
       }
     } catch (_) {}
   }
 
-  /// Load the user's watchlist from Firestore
+  /// Load watchlist symbols from Firestore.
   Future<void> _loadUserWatchlist() async {
     if (user == null) return;
     try {
-      final docSnap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user!.uid)
-          .get();
+      final docSnap = await FirebaseFirestore.instance.collection('users').doc(user!.uid).get();
       if (!docSnap.exists) return;
       final data = docSnap.data();
       if (data == null) return;
-
       final List<dynamic>? symbols = data['selectedTickerSymbols'] as List<dynamic>?;
       if (symbols != null) {
         _watchlistSymbols = symbols.map((e) => e.toString()).toList();
@@ -200,13 +252,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     } catch (_) {}
   }
 
-  /// Save the user's watchlist back to Firestore
+  /// Save the user's watchlist to Firestore.
   Future<void> _saveUserWatchlist() async {
     if (user == null) return;
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user!.uid)
-        .set({
+    await FirebaseFirestore.instance.collection('users').doc(user!.uid).set({
       'selectedTickerSymbols': _watchlistSymbols,
     }, SetOptions(merge: true));
   }
@@ -219,11 +268,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     }).toList();
   }
 
-  /// Reorder watchlist items
+  /// Reorder watchlist items.
   void _onReorder(int oldIndex, int newIndex) async {
-    if (newIndex > oldIndex) {
-      newIndex -= 1;
-    }
+    if (newIndex > oldIndex) newIndex -= 1;
     final symbol = _watchlistSymbols.removeAt(oldIndex);
     _watchlistSymbols.insert(newIndex, symbol);
 
@@ -232,14 +279,14 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
     setState(() {});
     await _saveUserWatchlist();
+    await _refreshWatchlist();
   }
 
-  /// Toggle Picture-in-Picture
+  /// Toggle Picture-in-Picture.
   void _toggleFloatingWindow() async {
     if (_watchlistData.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please add some stocks first to use PiP mode')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Please add some stocks first to use PiP mode')));
       return;
     }
     if (!_isFloatingWindowActive) {
@@ -250,7 +297,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     }
   }
 
-  /// Navigate to profile & filter settings
+  /// Navigate to profile/filter settings.
   Future<void> _gotoProfileFilters() async {
     PiPService.setIsMainPage(false);
     final result = await Navigator.push(
@@ -273,15 +320,15 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
     if (result is Map<String, dynamic>) {
       setState(() {
-        _tickerShowSymbol         = result['showSymbol']        ?? _tickerShowSymbol;
-        _tickerShowName           = result['showName']          ?? _tickerShowName;
-        _tickerShowPrice          = result['showPrice']         ?? _tickerShowPrice;
+        _tickerShowSymbol         = result['showSymbol'] ?? _tickerShowSymbol;
+        _tickerShowName           = result['showName'] ?? _tickerShowName;
+        _tickerShowPrice          = result['showPrice'] ?? _tickerShowPrice;
         _tickerShowPercentChange  = result['showPercentChange'] ?? _tickerShowPercentChange;
-        _tickerShowAbsoluteChange = result['showAbsoluteChange']?? _tickerShowAbsoluteChange;
-        _tickerShowVolume         = result['showVolume']        ?? _tickerShowVolume;
-        _tickerShowOpeningPrice   = result['showOpeningPrice']  ?? _tickerShowOpeningPrice;
-        _tickerShowDailyHighLow   = result['showDailyHighLow']  ?? _tickerShowDailyHighLow;
-        _separator                = result['separator']         ?? _separator;
+        _tickerShowAbsoluteChange = result['showAbsoluteChange'] ?? _tickerShowAbsoluteChange;
+        _tickerShowVolume         = result['showVolume'] ?? _tickerShowVolume;
+        _tickerShowOpeningPrice   = result['showOpeningPrice'] ?? _tickerShowOpeningPrice;
+        _tickerShowDailyHighLow   = result['showDailyHighLow'] ?? _tickerShowDailyHighLow;
+        _separator                = result['separator'] ?? _separator;
       });
     }
   }
@@ -309,7 +356,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      // AppBar with Logo + "StockTok" centered
       appBar: AppBar(
         elevation: 0,
         automaticallyImplyLeading: false,
@@ -344,21 +390,12 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           ],
         ),
       ),
-
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : filteredWatchlist.isEmpty
           ? Center(
         child: ElevatedButton(
-          onPressed: () async {
-            final gotNewItems = await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SearchPage(forceSelection: false)),
-            );
-            if (gotNewItems == true && mounted) {
-              await _refreshWatchlist();
-            }
-          },
+          onPressed: () => _openSearchPage(forceSelection: false),
           child: const Text('Add Symbols to Watchlist'),
         ),
       )
@@ -370,7 +407,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           itemBuilder: (context, index) {
             final stock = filteredWatchlist[index];
             return Column(
-              key: ValueKey(stock.symbol),
+              key: ValueKey('reorder_${stock.symbol}'),
               children: [
                 Dismissible(
                   key: ValueKey('dismiss_${stock.symbol}'),
@@ -381,12 +418,14 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                     child: const Icon(Icons.delete, color: Colors.white),
                   ),
                   direction: DismissDirection.endToStart,
-                  onDismissed: (dir) {
+                  onDismissed: (direction) async {
                     setState(() {
                       _watchlistSymbols.remove(stock.symbol);
                       _watchlistData.remove(stock);
                     });
-                    _saveUserWatchlist();
+                    await _saveUserWatchlist();
+                    await _refreshWatchlist();
+                    print('Dismissed item: ${stock.symbol}');
                   },
                   child: WatchlistCard(
                     key: ValueKey('watchlistCard-${stock.symbol}'),
@@ -403,13 +442,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                     onCheckboxChanged: () {},
                   ),
                 ),
-                // Divider with same width as the card (16 px indent on each side)
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
                   height: 1,
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.grey.shade600
-                      : Colors.grey.shade300,
+                  color: isDark ? Colors.grey.shade600 : Colors.grey.shade300,
                 ),
               ],
             );
@@ -433,9 +469,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                     color: Colors.transparent,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.grey.shade600
-                          : Colors.grey.shade300,
+                      color: isDark ? Colors.grey.shade600 : Colors.grey.shade300,
                       width: 1,
                     ),
                   ),
@@ -445,14 +479,13 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                     decoration: const InputDecoration(
                       hintText: 'Search...',
                       border: InputBorder.none,
-                      filled: true, // Enables background color
-                      fillColor: Colors.transparent, // Makes background transparent
+                      filled: true,
+                      fillColor: Colors.transparent,
                     ),
-                    style: TextStyle(color: Colors.black), // Adjust text color as needed
-                  )
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                  ),
                 ),
               ),
-              // PiP Toggle
               IconButton(
                 icon: Icon(
                   _isFloatingWindowActive ? Icons.close_fullscreen : Icons.open_in_full,
@@ -460,7 +493,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                 ),
                 onPressed: _toggleFloatingWindow,
               ),
-              // Profile icon with circular outline
               IconButton(
                 iconSize: 24,
                 icon: Icon(Icons.person, color: Colors.grey[600]),
@@ -472,4 +504,11 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       ),
     );
   }
+}
+
+/// Simple data holder for a pair of dates.
+class Tuple2<A, B> {
+  final A item1;
+  final B item2;
+  Tuple2(this.item1, this.item2);
 }
