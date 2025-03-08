@@ -42,6 +42,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   bool _tickerShowDailyHighLow   = false;
   String _separator              = ' .... ';
 
+  // Dark mode flag from Firestore.
+  bool _darkMode = false;
+
   List<String> _watchlistSymbols = [];
   List<StockData> _watchlistData = [];
 
@@ -81,10 +84,12 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         if (docSnap.exists) {
           final data = docSnap.data();
           if (data != null) {
-            final List<dynamic>? symbols = data['selectedTickerSymbols'] as List<dynamic>?;
+            final List<dynamic>? symbols =
+            data['selectedTickerSymbols'] as List<dynamic>?;
             if (symbols != null) {
               setState(() {
-                _watchlistSymbols = symbols.map((e) => e.toString()).toList();
+                _watchlistSymbols =
+                    symbols.map((e) => e.toString()).toList();
               });
               await _refreshWatchlist();
             }
@@ -119,9 +124,11 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       final day1 = _formatDate(twoDays.item1);
       final day2 = _formatDate(twoDays.item2);
 
-      final combined = await PolygonService.fetchTwoDaysCombined(day1: day1, day2: day2);
+      final combined = await PolygonService.fetchTwoDaysCombined(
+          day1: day1, day2: day2);
       dataRepo.addPolygonData(combined);
-      print('--- MAIN PAGE: after Polygon fetch, dataRepo has ${dataRepo.polygonCache.length} symbols.');
+      print(
+          '--- MAIN PAGE: after Polygon fetch, dataRepo has ${dataRepo.polygonCache.length} symbols.');
     } catch (e) {
       print('--- Error in _initialLoad fetching from Polygon: $e');
     }
@@ -144,7 +151,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     await _refreshWatchlist();
 
     // (6) Also refresh every minute.
-    _updateTimer = Timer.periodic(const Duration(minutes: 1), (_) => _refreshWatchlist());
+    _updateTimer =
+        Timer.periodic(const Duration(minutes: 1), (_) => _refreshWatchlist());
 
     setState(() => _isLoading = false);
   }
@@ -153,7 +161,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   Future<void> _openSearchPage({bool forceSelection = false}) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => SearchPage(forceSelection: forceSelection)),
+      MaterialPageRoute(
+          builder: (_) => SearchPage(forceSelection: forceSelection)),
     );
     await _updateFromFirestore();
   }
@@ -212,11 +221,14 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     setState(() => _watchlistData = updated);
   }
 
-  /// Load user filter preferences from Firestore.
+  /// Load user filter preferences from Firestore, including darkMode.
   Future<void> _loadUserFilterPreferences() async {
     if (user == null) return;
     try {
-      final docSnap = await FirebaseFirestore.instance.collection('users').doc(user!.uid).get();
+      final docSnap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user!.uid)
+          .get();
       if (!docSnap.exists) return;
       final data = docSnap.data();
       if (data == null) return;
@@ -232,6 +244,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           _tickerShowOpeningPrice   = prefs['showOpeningPrice'] ?? _tickerShowOpeningPrice;
           _tickerShowDailyHighLow   = prefs['showDailyHighLow'] ?? _tickerShowDailyHighLow;
           _separator                = prefs['separator'] ?? _separator;
+          _darkMode                 = prefs['darkMode'] ?? false;
         });
       }
     } catch (_) {}
@@ -241,11 +254,15 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   Future<void> _loadUserWatchlist() async {
     if (user == null) return;
     try {
-      final docSnap = await FirebaseFirestore.instance.collection('users').doc(user!.uid).get();
+      final docSnap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user!.uid)
+          .get();
       if (!docSnap.exists) return;
       final data = docSnap.data();
       if (data == null) return;
-      final List<dynamic>? symbols = data['selectedTickerSymbols'] as List<dynamic>?;
+      final List<dynamic>? symbols =
+      data['selectedTickerSymbols'] as List<dynamic>?;
       if (symbols != null) {
         _watchlistSymbols = symbols.map((e) => e.toString()).toList();
       }
@@ -285,8 +302,11 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   /// Toggle Picture-in-Picture.
   void _toggleFloatingWindow() async {
     if (_watchlistData.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Please add some stocks first to use PiP mode')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please add some stocks first to use PiP mode'),
+        ),
+      );
       return;
     }
     if (!_isFloatingWindowActive) {
@@ -335,170 +355,170 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    if (_isFloatingWindowActive) {
-      return Scaffold(
-        body: PipTickerView(
-          stocks: _watchlistData,
-          displayPrefs: {
-            'showSymbol': _tickerShowSymbol,
-            'showName': _tickerShowName,
-            'showPrice': _tickerShowPrice,
-            'showPercentChange': _tickerShowPercentChange,
-            'showAbsoluteChange': _tickerShowAbsoluteChange,
-            'showVolume': _tickerShowVolume,
-            'showOpeningPrice': _tickerShowOpeningPrice,
-            'showDailyHighLow': _tickerShowDailyHighLow,
-          },
-          separator: _separator,
-        ),
-      );
-    }
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Scaffold(
-      appBar: AppBar(
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        centerTitle: true,
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset('assets/icons/iconf.png', height: 28, color: isDark ? Colors.white : null),
-            const SizedBox(width: 6),
-            Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: 'Stock',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
-                  ),
-                  const TextSpan(
-                    text: 'Tok',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFE5F64A),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : filteredWatchlist.isEmpty
-          ? Center(
-        child: ElevatedButton(
-          onPressed: () => _openSearchPage(forceSelection: false),
-          child: const Text('Add Symbols to Watchlist'),
-        ),
-      )
-          : RefreshIndicator(
-        onRefresh: _refreshWatchlist,
-        child: ReorderableListView.builder(
-          itemCount: filteredWatchlist.length,
-          onReorder: _onReorder,
-          itemBuilder: (context, index) {
-            final stock = filteredWatchlist[index];
-            return Column(
-              key: ValueKey('reorder_${stock.symbol}'),
-              children: [
-                Dismissible(
-                  key: ValueKey('dismiss_${stock.symbol}'),
-                  background: Container(
-                    color: Colors.red,
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 16),
-                    child: const Icon(Icons.delete, color: Colors.white),
-                  ),
-                  direction: DismissDirection.endToStart,
-                  onDismissed: (direction) async {
-                    setState(() {
-                      _watchlistSymbols.remove(stock.symbol);
-                      _watchlistData.remove(stock);
-                    });
-                    await _saveUserWatchlist();
-                    await _refreshWatchlist();
-                    print('Dismissed item: ${stock.symbol}');
-                  },
-                  child: WatchlistCard(
-                    key: ValueKey('watchlistCard-${stock.symbol}'),
-                    stock: stock,
-                    showSymbol: _tickerShowSymbol,
-                    showName: _tickerShowName,
-                    showPrice: _tickerShowPrice,
-                    showPercentChange: _tickerShowPercentChange,
-                    showAbsoluteChange: _tickerShowAbsoluteChange,
-                    showVolume: _tickerShowVolume,
-                    showOpeningPrice: _tickerShowOpeningPrice,
-                    showDailyHighLow: _tickerShowDailyHighLow,
-                    isChecked: false,
-                    onCheckboxChanged: () {},
-                  ),
-                ),
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  height: 1,
-                  color: isDark ? Colors.grey.shade600 : Colors.grey.shade300,
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-      bottomNavigationBar: Material(
-        elevation: 8,
-        child: Container(
-          height: 60,
-          color: Theme.of(context).cardColor,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Row(
+    // Wrap the entire scaffold with a Theme widget using the _darkMode value.
+    return Theme(
+      data: _darkMode ? ThemeData.dark() : ThemeData.light(),
+      child: Scaffold(
+        // When in dark mode, force the background color to be pitch black.
+        backgroundColor: _darkMode ? Colors.black : null,
+        appBar: AppBar(
+          elevation: 0,
+          automaticallyImplyLeading: false,
+          centerTitle: true,
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Expanded(
-                child: Container(
-                  height: 40,
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: isDark ? Colors.grey.shade600 : Colors.grey.shade300,
-                      width: 1,
+              Image.asset('assets/icons/iconf.png',
+                  height: 28, color: _darkMode ? Colors.white : null),
+              const SizedBox(width: 6),
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: 'Stock',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: _darkMode ? Colors.white : Colors.black,
+                      ),
                     ),
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (_) => setState(() {}),
-                    decoration: const InputDecoration(
-                      hintText: 'Search...',
-                      border: InputBorder.none,
-                      filled: true,
-                      fillColor: Colors.transparent,
+                    const TextSpan(
+                      text: 'Tok',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFE5F64A),
+                      ),
                     ),
-                    style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                  ),
+                  ],
                 ),
-              ),
-              IconButton(
-                icon: Icon(
-                  _isFloatingWindowActive ? Icons.close_fullscreen : Icons.open_in_full,
-                  color: Colors.grey[600],
-                ),
-                onPressed: _toggleFloatingWindow,
-              ),
-              IconButton(
-                iconSize: 24,
-                icon: Icon(Icons.person, color: Colors.grey[600]),
-                onPressed: _gotoProfileFilters,
               ),
             ],
+          ),
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : filteredWatchlist.isEmpty
+            ? Center(
+          child: ElevatedButton(
+            onPressed: () =>
+                _openSearchPage(forceSelection: false),
+            child: const Text('Add Symbols to Watchlist'),
+          ),
+        )
+            : RefreshIndicator(
+          onRefresh: _refreshWatchlist,
+          child: ReorderableListView.builder(
+            itemCount: filteredWatchlist.length,
+            onReorder: _onReorder,
+            itemBuilder: (context, index) {
+              final stock = filteredWatchlist[index];
+              return Column(
+                key: ValueKey('reorder_${stock.symbol}'),
+                children: [
+                  Dismissible(
+                    key: ValueKey('dismiss_${stock.symbol}'),
+                    background: Container(
+                      color: Colors.red,
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 16),
+                      child: const Icon(Icons.delete,
+                          color: Colors.white),
+                    ),
+                    direction: DismissDirection.endToStart,
+                    onDismissed: (direction) async {
+                      setState(() {
+                        _watchlistSymbols.remove(stock.symbol);
+                        _watchlistData.remove(stock);
+                      });
+                      await _saveUserWatchlist();
+                      await _refreshWatchlist();
+                      print('Dismissed item: ${stock.symbol}');
+                    },
+                    child: WatchlistCard(
+                      key: ValueKey('watchlistCard-${stock.symbol}'),
+                      stock: stock,
+                      showSymbol: _tickerShowSymbol,
+                      showName: _tickerShowName,
+                      showPrice: _tickerShowPrice,
+                      showPercentChange: _tickerShowPercentChange,
+                      showAbsoluteChange: _tickerShowAbsoluteChange,
+                      showVolume: _tickerShowVolume,
+                      showOpeningPrice: _tickerShowOpeningPrice,
+                      showDailyHighLow: _tickerShowDailyHighLow,
+                      isChecked: false,
+                      onCheckboxChanged: () {},
+                    ),
+                  ),
+                  Container(
+                    margin:
+                    const EdgeInsets.symmetric(horizontal: 16),
+                    height: 1,
+                    color: _darkMode
+                        ? Colors.grey.shade600
+                        : Colors.grey.shade300,
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        bottomNavigationBar: Material(
+          elevation: 8,
+          child: Container(
+            height: 60,
+            // Set the bottom nav bar color: when dark mode is enabled, use black to match the app bar.
+            color: _darkMode ? Colors.black : Theme.of(context).cardColor,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 40,
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: _darkMode
+                            ? Colors.grey.shade600
+                            : Colors.grey.shade300,
+                        width: 1,
+                      ),
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (_) => setState(() {}),
+                      decoration: const InputDecoration(
+                        hintText: 'Search...',
+                        border: InputBorder.none,
+                        filled: true,
+                        fillColor: Colors.transparent,
+                      ),
+                      style: TextStyle(
+                        color:
+                        _darkMode ? Colors.white : Colors.black,
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(
+                    _isFloatingWindowActive
+                        ? Icons.close_fullscreen
+                        : Icons.open_in_full,
+                    color: Colors.grey[600],
+                  ),
+                  onPressed: _toggleFloatingWindow,
+                ),
+                IconButton(
+                  iconSize: 24,
+                  icon: Icon(Icons.person, color: Colors.grey[600]),
+                  onPressed: _gotoProfileFilters,
+                ),
+              ],
+            ),
           ),
         ),
       ),
