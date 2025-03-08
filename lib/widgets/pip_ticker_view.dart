@@ -38,6 +38,17 @@ class _PipTickerViewState extends State<PipTickerView> with WidgetsBindingObserv
   }
 
   @override
+  void didUpdateWidget(PipTickerView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Rebuild segments if stocks, displayPrefs, or separator have changed.
+    if (oldWidget.stocks != widget.stocks ||
+        oldWidget.displayPrefs != widget.displayPrefs ||
+        oldWidget.separator != widget.separator) {
+      _buildSegments();
+    }
+  }
+
+  @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _scrollTimer?.cancel();
@@ -47,30 +58,27 @@ class _PipTickerViewState extends State<PipTickerView> with WidgetsBindingObserv
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // if user hits Home, we remain in PiP
+    // When user leaves/returns, we stay in PiP mode.
     super.didChangeAppLifecycleState(state);
   }
 
-  /// Build an infinite loop by:
-  /// 1) converting each watchlist item to a text segment
-  /// 2) appending an ad at the end of each set
-  /// 3) duplicating the entire set to ensure a seamless loop
   void _buildSegments() {
     final baseSegments = <String>[];
-
+    int count = 0;
     for (final stock in widget.stocks) {
       baseSegments.add(_buildDisplayText(stock));
+      count++;
+      // Insert ad text after every 3 items.
+      if (count % 3 == 0) {
+        baseSegments.add('Brought to you by Emergitech Solutions');
+      }
     }
-
-    // Insert an ad item after watchlist
-    baseSegments.add('[AD => Brought to you by Emergitech Solutions]');
-
-    // now duplicate
-    _liveSegments.clear();
-    // so we have watchlist+ad, watchlist+ad
-    _liveSegments.addAll(baseSegments);
-    _liveSegments.addAll(baseSegments);
+    _liveSegments
+      ..clear()
+      ..addAll(baseSegments)
+      ..addAll(baseSegments);
   }
+
 
   String _buildDisplayText(StockData stock) {
     final dp = widget.displayPrefs;
@@ -109,7 +117,7 @@ class _PipTickerViewState extends State<PipTickerView> with WidgetsBindingObserv
       final maxScroll = _scrollController.position.maxScrollExtent;
       final newPos = _scrollController.offset + _scrollSpeed;
 
-      // infinite loop approach: if we exceed half, jump back by half
+      // When we've scrolled half the content, jump back to create an infinite loop.
       if (newPos >= maxScroll / 2) {
         _scrollController.jumpTo(newPos - (maxScroll / 2));
       } else {

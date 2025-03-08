@@ -68,7 +68,13 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     channel.setMethodCallHandler((call) async {
       if (call.method == 'onPiPChanged') {
         final isInPiP = call.arguments as bool;
-        if (mounted) setState(() => _isFloatingWindowActive = isInPiP);
+        if (mounted) {
+          setState(() {
+            _isFloatingWindowActive = isInPiP;
+            // Optionally, if you need to rebuild data when leaving PiP mode,
+            // add additional logic here (as in your old code).
+          });
+        }
       }
     });
 
@@ -88,8 +94,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
             data['selectedTickerSymbols'] as List<dynamic>?;
             if (symbols != null) {
               setState(() {
-                _watchlistSymbols =
-                    symbols.map((e) => e.toString()).toList();
+                _watchlistSymbols = symbols.map((e) => e.toString()).toList();
               });
               await _refreshWatchlist();
             }
@@ -313,49 +318,39 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       await PiPService.enterPiPMode();
       setState(() => _isFloatingWindowActive = true);
     } else {
+      // Optionally, if your PiPService has an exit method, call it here.
       setState(() => _isFloatingWindowActive = false);
-    }
-  }
-
-  /// Navigate to profile/filter settings.
-  Future<void> _gotoProfileFilters() async {
-    PiPService.setIsMainPage(false);
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ProfileFilterPage(
-          showSymbol:         _tickerShowSymbol,
-          showName:           _tickerShowName,
-          showPrice:          _tickerShowPrice,
-          showPercentChange:  _tickerShowPercentChange,
-          showAbsoluteChange: _tickerShowAbsoluteChange,
-          showVolume:         _tickerShowVolume,
-          showOpeningPrice:   _tickerShowOpeningPrice,
-          showDailyHighLow:   _tickerShowDailyHighLow,
-          separator:          _separator,
-        ),
-      ),
-    );
-    PiPService.setIsMainPage(true);
-
-    if (result is Map<String, dynamic>) {
-      setState(() {
-        _tickerShowSymbol         = result['showSymbol'] ?? _tickerShowSymbol;
-        _tickerShowName           = result['showName'] ?? _tickerShowName;
-        _tickerShowPrice          = result['showPrice'] ?? _tickerShowPrice;
-        _tickerShowPercentChange  = result['showPercentChange'] ?? _tickerShowPercentChange;
-        _tickerShowAbsoluteChange = result['showAbsoluteChange'] ?? _tickerShowAbsoluteChange;
-        _tickerShowVolume         = result['showVolume'] ?? _tickerShowVolume;
-        _tickerShowOpeningPrice   = result['showOpeningPrice'] ?? _tickerShowOpeningPrice;
-        _tickerShowDailyHighLow   = result['showDailyHighLow'] ?? _tickerShowDailyHighLow;
-        _separator                = result['separator'] ?? _separator;
-      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Wrap the entire scaffold with a Theme widget using the _darkMode value.
+    // If PiP mode is active, display only the PipTickerView.
+    if (_isFloatingWindowActive) {
+      return Theme(
+        data: _darkMode ? ThemeData.dark() : ThemeData.light(),
+        child: Scaffold(
+          backgroundColor: _darkMode ? Colors.black : null,
+          // No app bar in PiP mode.
+          body: PipTickerView(
+            stocks: _watchlistData,
+            displayPrefs: {
+              'showSymbol': _tickerShowSymbol,
+              'showName': _tickerShowName,
+              'showPrice': _tickerShowPrice,
+              'showPercentChange': _tickerShowPercentChange,
+              'showAbsoluteChange': _tickerShowAbsoluteChange,
+              'showVolume': _tickerShowVolume,
+              'showOpeningPrice': _tickerShowOpeningPrice,
+              'showDailyHighLow': _tickerShowDailyHighLow,
+            },
+            separator: _separator,
+          ),
+        ),
+      );
+    }
+
+    // Normal (non-PiP) view.
     return Theme(
       data: _darkMode ? ThemeData.dark() : ThemeData.light(),
       child: Scaffold(
@@ -401,8 +396,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
             : filteredWatchlist.isEmpty
             ? Center(
           child: ElevatedButton(
-            onPressed: () =>
-                _openSearchPage(forceSelection: false),
+            onPressed: () => _openSearchPage(forceSelection: false),
             child: const Text('Add Symbols to Watchlist'),
           ),
         )
@@ -451,8 +445,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                     ),
                   ),
                   Container(
-                    margin:
-                    const EdgeInsets.symmetric(horizontal: 16),
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
                     height: 1,
                     color: _darkMode
                         ? Colors.grey.shade600
@@ -497,8 +490,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                         fillColor: Colors.transparent,
                       ),
                       style: TextStyle(
-                        color:
-                        _darkMode ? Colors.white : Colors.black,
+                        color: _darkMode ? Colors.white : Colors.black,
                       ),
                     ),
                   ),
@@ -523,6 +515,42 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         ),
       ),
     );
+  }
+
+  /// Navigate to profile/filter settings.
+  Future<void> _gotoProfileFilters() async {
+    PiPService.setIsMainPage(false);
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProfileFilterPage(
+          showSymbol: _tickerShowSymbol,
+          showName: _tickerShowName,
+          showPrice: _tickerShowPrice,
+          showPercentChange: _tickerShowPercentChange,
+          showAbsoluteChange: _tickerShowAbsoluteChange,
+          showVolume: _tickerShowVolume,
+          showOpeningPrice: _tickerShowOpeningPrice,
+          showDailyHighLow: _tickerShowDailyHighLow,
+          separator: _separator,
+        ),
+      ),
+    );
+    PiPService.setIsMainPage(true);
+
+    if (result is Map<String, dynamic>) {
+      setState(() {
+        _tickerShowSymbol         = result['showSymbol'] ?? _tickerShowSymbol;
+        _tickerShowName           = result['showName'] ?? _tickerShowName;
+        _tickerShowPrice          = result['showPrice'] ?? _tickerShowPrice;
+        _tickerShowPercentChange  = result['showPercentChange'] ?? _tickerShowPercentChange;
+        _tickerShowAbsoluteChange = result['showAbsoluteChange'] ?? _tickerShowAbsoluteChange;
+        _tickerShowVolume         = result['showVolume'] ?? _tickerShowVolume;
+        _tickerShowOpeningPrice   = result['showOpeningPrice'] ?? _tickerShowOpeningPrice;
+        _tickerShowDailyHighLow   = result['showDailyHighLow'] ?? _tickerShowDailyHighLow;
+        _separator                = result['separator'] ?? _separator;
+      });
+    }
   }
 }
 
