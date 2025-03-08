@@ -43,34 +43,47 @@ class _WatchlistCardState extends State<WatchlistCard> {
   Widget build(BuildContext context) {
     final color = (widget.stock.absoluteChange >= 0) ? Colors.green : Colors.red;
 
-    // Top row: name/symbol on the left, price + changes on the right
+    // Top row: left (name & symbol) and right (price & changes)
     Widget topRow = Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        // Left side: name + symbol
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (widget.showName)
-              Text(
-                widget.stock.name,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+        // Left side: name + symbol wrapped in an Expanded widget.
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (widget.showName)
+              // Use LayoutBuilder and ConstrainedBox to limit width to 65%
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    return ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: constraints.maxWidth * 0.70,
+                      ),
+                      child: Text(
+                        widget.stock.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              ),
-            if (widget.showSymbol)
-              Text(
-                widget.stock.symbol,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
+              if (widget.showSymbol)
+                Text(
+                  widget.stock.symbol,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
-
-        // Right side: price & changes
+        // Right side: price & changes.
         Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -89,14 +102,12 @@ class _WatchlistCardState extends State<WatchlistCard> {
                 children: [
                   if (widget.showAbsoluteChange)
                     Text(
-                      '${widget.stock.absoluteChange >= 0 ? '+' : ''}'
-                          '${widget.stock.absoluteChange.toStringAsFixed(2)} ',
+                      '${widget.stock.absoluteChange >= 0 ? '+' : ''}${widget.stock.absoluteChange.toStringAsFixed(2)} ',
                       style: TextStyle(color: color, fontSize: 14),
                     ),
                   if (widget.showPercentChange)
                     Text(
-                      '(${widget.stock.percentChange >= 0 ? '+' : ''}'
-                          '${widget.stock.percentChange.toStringAsFixed(2)}%)',
+                      '(${widget.stock.percentChange >= 0 ? '+' : ''}${widget.stock.percentChange.toStringAsFixed(2)}%)',
                       style: TextStyle(color: color, fontSize: 14),
                     ),
                 ],
@@ -106,7 +117,7 @@ class _WatchlistCardState extends State<WatchlistCard> {
       ],
     );
 
-    // Expanded row: only if toggles and user taps
+    // Expanded row: shows extra info when tapped.
     Widget? expandedRow;
     if (_isExpanded) {
       List<Widget> extraItems = [];
@@ -124,7 +135,6 @@ class _WatchlistCardState extends State<WatchlistCard> {
           ),
         );
       }
-
       if (extraItems.isNotEmpty) {
         expandedRow = Padding(
           padding: const EdgeInsets.only(top: 8.0),
@@ -141,7 +151,7 @@ class _WatchlistCardState extends State<WatchlistCard> {
     return GestureDetector(
       onTap: () => setState(() => _isExpanded = !_isExpanded),
       child: Container(
-        color: Colors.transparent, // no card bg color
+        color: Colors.transparent,
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

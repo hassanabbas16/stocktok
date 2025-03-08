@@ -45,12 +45,23 @@ class _SearchResultCardState extends State<SearchResultCard> {
               ),
             ),
             SizedBox(height: width * 0.01),
-            Text(
-              stock.name,
-              style: TextStyle(
-                fontSize: width * 0.035,
-                color: isDark ? Colors.grey[300] : Colors.grey[700],
-              ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                return ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: constraints.maxWidth * 0.70,
+                  ),
+                  child: Text(
+                    widget.stock.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: width * 0.035,
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         ),
