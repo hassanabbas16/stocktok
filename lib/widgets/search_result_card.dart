@@ -49,7 +49,7 @@ class _SearchResultCardState extends State<SearchResultCard> {
               builder: (context, constraints) {
                 return ConstrainedBox(
                   constraints: BoxConstraints(
-                    maxWidth: constraints.maxWidth * 0.70,
+                    maxWidth: constraints.maxWidth * 0.60,
                   ),
                   child: Text(
                     widget.stock.name,
