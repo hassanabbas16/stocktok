@@ -92,15 +92,15 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
         if (data != null && data['filterPreferences'] is Map) {
           final prefs = data['filterPreferences'] as Map<String, dynamic>;
           setState(() {
-            _showSymbol         = prefs['showSymbol']        ?? _showSymbol;
-            _showName           = prefs['showName']          ?? _showName;
-            _showPrice          = prefs['showPrice']         ?? _showPrice;
-            _showPercentChange  = prefs['showPercentChange'] ?? _showPercentChange;
-            _showAbsoluteChange = prefs['showAbsoluteChange']?? _showAbsoluteChange;
-            _showVolume         = prefs['showVolume']        ?? _showVolume;
-            _showOpeningPrice   = prefs['showOpeningPrice']  ?? _showOpeningPrice;
-            _showDailyHighLow   = prefs['showDailyHighLow']  ?? _showDailyHighLow;
-            _separator          = prefs['separator']         ?? _separator;
+            _showSymbol         = prefs['showSymbol']         ?? _showSymbol;
+            _showName           = prefs['showName']           ?? _showName;
+            _showPrice          = prefs['showPrice']          ?? _showPrice;
+            _showPercentChange  = prefs['showPercentChange']  ?? _showPercentChange;
+            _showAbsoluteChange = prefs['showAbsoluteChange'] ?? _showAbsoluteChange;
+            _showVolume         = prefs['showVolume']         ?? _showVolume;
+            _showOpeningPrice   = prefs['showOpeningPrice']   ?? _showOpeningPrice;
+            _showDailyHighLow   = prefs['showDailyHighLow']   ?? _showDailyHighLow;
+            _separator          = prefs['separator']          ?? _separator;
 
             // Dark mode
             if (prefs.containsKey('darkMode')) {
@@ -162,20 +162,22 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
     }
   }
 
-  /// "Save & Back" still relevant for other toggles, but dark mode is immediate
+  /// "Save & Back"
   Future<void> _saveAndPop() async {
     await _saveUserFilterPreferences();
     if (mounted) {
+      // Return all user-chosen preferences (including darkMode!)
       Navigator.pop(context, {
-        'showSymbol': _showSymbol,
-        'showName': _showName,
-        'showPrice': _showPrice,
-        'showPercentChange': _showPercentChange,
+        'showSymbol':         _showSymbol,
+        'showName':           _showName,
+        'showPrice':          _showPrice,
+        'showPercentChange':  _showPercentChange,
         'showAbsoluteChange': _showAbsoluteChange,
-        'showVolume': _showVolume,
-        'showOpeningPrice': _showOpeningPrice,
-        'showDailyHighLow': _showDailyHighLow,
-        'separator': _separator,
+        'showVolume':         _showVolume,
+        'showOpeningPrice':   _showOpeningPrice,
+        'showDailyHighLow':   _showDailyHighLow,
+        'separator':          _separator,
+        'darkMode':           _tempDarkMode, // So main page can update immediately
       });
     }
   }
@@ -240,7 +242,8 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
                           style: TextStyle(
                             fontSize: width * 0.045,
                             fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : Colors.black,
+                            color:
+                            isDark ? Colors.white : Colors.black,
                           ),
                         ),
                         const Spacer(),
@@ -324,14 +327,28 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
                       ),
                     ),
                     const Divider(),
-                    _buildSwitchTile('Show Symbol', _showSymbol, (v) => setState(() => _showSymbol = v)),
-                    _buildSwitchTile('Show Name', _showName, (v) => setState(() => _showName = v)),
-                    _buildSwitchTile('Show Current Price', _showPrice, (v) => setState(() => _showPrice = v)),
-                    _buildSwitchTile('Show % Change', _showPercentChange, (v) => setState(() => _showPercentChange = v)),
-                    _buildSwitchTile('Show Price Change (Absolute)', _showAbsoluteChange, (v) => setState(() => _showAbsoluteChange = v)),
-                    _buildSwitchTile('Show Volume', _showVolume, (v) => setState(() => _showVolume = v)),
-                    _buildSwitchTile('Show Opening Price', _showOpeningPrice, (v) => setState(() => _showOpeningPrice = v)),
-                    _buildSwitchTile('Show Daily High/Low', _showDailyHighLow, (v) => setState(() => _showDailyHighLow = v)),
+                    _buildSwitchTile('Show Symbol', _showSymbol,
+                            (v) => setState(() => _showSymbol = v)),
+                    _buildSwitchTile('Show Name', _showName,
+                            (v) => setState(() => _showName = v)),
+                    _buildSwitchTile('Show Current Price', _showPrice,
+                            (v) => setState(() => _showPrice = v)),
+                    _buildSwitchTile('Show % Change', _showPercentChange,
+                            (v) => setState(() => _showPercentChange = v)),
+                    _buildSwitchTile(
+                        'Show Price Change (Absolute)',
+                        _showAbsoluteChange,
+                            (v) => setState(() => _showAbsoluteChange = v)),
+                    _buildSwitchTile('Show Volume', _showVolume,
+                            (v) => setState(() => _showVolume = v)),
+                    _buildSwitchTile(
+                        'Show Opening Price',
+                        _showOpeningPrice,
+                            (v) => setState(() => _showOpeningPrice = v)),
+                    _buildSwitchTile(
+                        'Show Daily High/Low',
+                        _showDailyHighLow,
+                            (v) => setState(() => _showDailyHighLow = v)),
                     const Divider(),
                     Align(
                       alignment: Alignment.centerLeft,
@@ -414,11 +431,11 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
                   await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const SearchPage(forceSelection: false),
+                      builder: (_) =>
+                      const SearchPage(forceSelection: false),
                     ),
                   );
-                  // After search done, you can pop back if you like,
-                  // but here we only do a single pop from the filters
+                  // After search, we pop from the filters page
                   Navigator.pop(context);
                 },
                 style: ElevatedButton.styleFrom(
@@ -451,7 +468,9 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   side: BorderSide(
-                    color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+                    color: isDark
+                        ? Colors.grey.shade200
+                        : Colors.grey.shade800,
                     width: 1.5,
                   ),
                 ),
@@ -495,7 +514,7 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
     return ChoiceChip(
       label: Text(
         sepValue.trim(),
-        style: TextStyle(fontWeight: FontWeight.bold),
+        style: const TextStyle(fontWeight: FontWeight.bold),
       ),
       selected: isSelected,
       onSelected: (_) {

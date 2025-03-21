@@ -71,8 +71,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         if (mounted) {
           setState(() {
             _isFloatingWindowActive = isInPiP;
-            // Optionally, if you need to rebuild data when leaving PiP mode,
-            // add additional logic here (as in your old code).
+            // We do NOT reload watchlist here, so coming back from PiP won't force a reload.
           });
         }
       }
@@ -104,19 +103,11 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     }
   }
 
-  /// When the app resumes, update watchlist data.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _updateFromFirestore();
-    }
-  }
-
-  Future<void> _updateFromFirestore() async {
-    setState(() => _isLoading = true);
-    await _loadUserWatchlist();
-    await _refreshWatchlist();
-    setState(() => _isLoading = false);
+    // We intentionally remove the auto-refresh call here
+    // so that returning from PiP does not reload the page.
+    super.didChangeAppLifecycleState(state);
   }
 
   Future<void> _initialLoad() async {
@@ -130,7 +121,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       final day2 = _formatDate(twoDays.item2);
 
       final combined = await PolygonService.fetchTwoDaysCombined(
-          day1: day1, day2: day2);
+        day1: day1,
+        day2: day2,
+      );
       dataRepo.addPolygonData(combined);
       print(
           '--- MAIN PAGE: after Polygon fetch, dataRepo has ${dataRepo.polygonCache.length} symbols.');
@@ -138,7 +131,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       print('--- Error in _initialLoad fetching from Polygon: $e');
     }
 
-    // (2) Load user filter preferences.
+    // (2) Load user filter preferences, including darkMode.
     await _loadUserFilterPreferences();
 
     // (3) Load watchlist from Firestore.
@@ -162,23 +155,25 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     setState(() => _isLoading = false);
   }
 
-  /// When returning from the search page, reload watchlist from Firestore.
+  /// When returning from the search page or profile page, reload watchlist from Firestore if needed.
   Future<void> _openSearchPage({bool forceSelection = false}) async {
     await Navigator.push(
       context,
       MaterialPageRoute(
-          builder: (_) => SearchPage(forceSelection: forceSelection)),
+        builder: (_) => SearchPage(forceSelection: forceSelection),
+      ),
     );
+    // After returning from search, let's reload from Firestore
+    // but do not cause a full "page reload."
     await _updateFromFirestore();
   }
 
-  @override
-  void dispose() {
-    _updateTimer?.cancel();
-    _watchlistSubscription?.cancel();
-    PiPService.setIsMainPage(false);
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
+  /// Simple method to re-fetch watchlist data (symbols + quotes).
+  Future<void> _updateFromFirestore() async {
+    setState(() => _isLoading = true);
+    await _loadUserWatchlist();
+    await _refreshWatchlist();
+    setState(() => _isLoading = false);
   }
 
   Tuple2<DateTime, DateTime> _getLastTwoTradingDays() {
@@ -318,9 +313,59 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       await PiPService.enterPiPMode();
       setState(() => _isFloatingWindowActive = true);
     } else {
-      // Optionally, if your PiPService has an exit method, call it here.
+      // If your PiPService has an exit method, call it here. For now, we just update local state.
       setState(() => _isFloatingWindowActive = false);
     }
+  }
+
+  /// Navigate to profile/filter settings.
+  Future<void> _gotoProfileFilters() async {
+    PiPService.setIsMainPage(false);
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProfileFilterPage(
+          showSymbol: _tickerShowSymbol,
+          showName: _tickerShowName,
+          showPrice: _tickerShowPrice,
+          showPercentChange: _tickerShowPercentChange,
+          showAbsoluteChange: _tickerShowAbsoluteChange,
+          showVolume: _tickerShowVolume,
+          showOpeningPrice: _tickerShowOpeningPrice,
+          showDailyHighLow: _tickerShowDailyHighLow,
+          separator: _separator,
+        ),
+      ),
+    );
+    PiPService.setIsMainPage(true);
+
+    // Update ticker preferences and darkMode if returned.
+    if (result is Map<String, dynamic>) {
+      setState(() {
+        _tickerShowSymbol         = result['showSymbol'] ?? _tickerShowSymbol;
+        _tickerShowName           = result['showName'] ?? _tickerShowName;
+        _tickerShowPrice          = result['showPrice'] ?? _tickerShowPrice;
+        _tickerShowPercentChange  = result['showPercentChange'] ?? _tickerShowPercentChange;
+        _tickerShowAbsoluteChange = result['showAbsoluteChange'] ?? _tickerShowAbsoluteChange;
+        _tickerShowVolume         = result['showVolume'] ?? _tickerShowVolume;
+        _tickerShowOpeningPrice   = result['showOpeningPrice'] ?? _tickerShowOpeningPrice;
+        _tickerShowDailyHighLow   = result['showDailyHighLow'] ?? _tickerShowDailyHighLow;
+        _separator                = result['separator'] ?? _separator;
+        // Important: ensure theme changes too
+        if (result.containsKey('darkMode')) {
+          _darkMode = result['darkMode'];
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _updateTimer?.cancel();
+    _watchlistSubscription?.cancel();
+    PiPService.setIsMainPage(false);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   @override
@@ -354,7 +399,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     return Theme(
       data: _darkMode ? ThemeData.dark() : ThemeData.light(),
       child: Scaffold(
-        // When in dark mode, force the background color to be pitch black.
         backgroundColor: _darkMode ? Colors.black : null,
         appBar: AppBar(
           elevation: 0,
@@ -460,7 +504,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           elevation: 8,
           child: Container(
             height: 60,
-            // Set the bottom nav bar color: when dark mode is enabled, use black to match the app bar.
             color: _darkMode ? Colors.black : Theme.of(context).cardColor,
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
@@ -515,42 +558,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         ),
       ),
     );
-  }
-
-  /// Navigate to profile/filter settings.
-  Future<void> _gotoProfileFilters() async {
-    PiPService.setIsMainPage(false);
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ProfileFilterPage(
-          showSymbol: _tickerShowSymbol,
-          showName: _tickerShowName,
-          showPrice: _tickerShowPrice,
-          showPercentChange: _tickerShowPercentChange,
-          showAbsoluteChange: _tickerShowAbsoluteChange,
-          showVolume: _tickerShowVolume,
-          showOpeningPrice: _tickerShowOpeningPrice,
-          showDailyHighLow: _tickerShowDailyHighLow,
-          separator: _separator,
-        ),
-      ),
-    );
-    PiPService.setIsMainPage(true);
-
-    if (result is Map<String, dynamic>) {
-      setState(() {
-        _tickerShowSymbol         = result['showSymbol'] ?? _tickerShowSymbol;
-        _tickerShowName           = result['showName'] ?? _tickerShowName;
-        _tickerShowPrice          = result['showPrice'] ?? _tickerShowPrice;
-        _tickerShowPercentChange  = result['showPercentChange'] ?? _tickerShowPercentChange;
-        _tickerShowAbsoluteChange = result['showAbsoluteChange'] ?? _tickerShowAbsoluteChange;
-        _tickerShowVolume         = result['showVolume'] ?? _tickerShowVolume;
-        _tickerShowOpeningPrice   = result['showOpeningPrice'] ?? _tickerShowOpeningPrice;
-        _tickerShowDailyHighLow   = result['showDailyHighLow'] ?? _tickerShowDailyHighLow;
-        _separator                = result['separator'] ?? _separator;
-      });
-    }
   }
 }
 

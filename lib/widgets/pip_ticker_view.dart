@@ -7,7 +7,6 @@ class PipTickerView extends StatefulWidget {
   final Map<String, bool> displayPrefs;
   final String separator;
 
-  // We'll forcibly do black text in light mode, white in dark mode
   const PipTickerView({
     Key? key,
     required this.stocks,
@@ -40,7 +39,6 @@ class _PipTickerViewState extends State<PipTickerView> with WidgetsBindingObserv
   @override
   void didUpdateWidget(PipTickerView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Rebuild segments if stocks, displayPrefs, or separator have changed.
     if (oldWidget.stocks != widget.stocks ||
         oldWidget.displayPrefs != widget.displayPrefs ||
         oldWidget.separator != widget.separator) {
@@ -58,7 +56,6 @@ class _PipTickerViewState extends State<PipTickerView> with WidgetsBindingObserv
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // When user leaves/returns, we stay in PiP mode.
     super.didChangeAppLifecycleState(state);
   }
 
@@ -68,7 +65,6 @@ class _PipTickerViewState extends State<PipTickerView> with WidgetsBindingObserv
     for (final stock in widget.stocks) {
       baseSegments.add(_buildDisplayText(stock));
       count++;
-      // Insert ad text after every 3 items.
       if (count % 3 == 0) {
         baseSegments.add('Brought to you by Emergitech Solutions');
       }
@@ -78,7 +74,6 @@ class _PipTickerViewState extends State<PipTickerView> with WidgetsBindingObserv
       ..addAll(baseSegments)
       ..addAll(baseSegments);
   }
-
 
   String _buildDisplayText(StockData stock) {
     final dp = widget.displayPrefs;
@@ -117,7 +112,6 @@ class _PipTickerViewState extends State<PipTickerView> with WidgetsBindingObserv
       final maxScroll = _scrollController.position.maxScrollExtent;
       final newPos = _scrollController.offset + _scrollSpeed;
 
-      // When we've scrolled half the content, jump back to create an infinite loop.
       if (newPos >= maxScroll / 2) {
         _scrollController.jumpTo(newPos - (maxScroll / 2));
       } else {
@@ -128,6 +122,15 @@ class _PipTickerViewState extends State<PipTickerView> with WidgetsBindingObserv
 
   bool _isNumericWord(String word) {
     return RegExp(r'[\d\$\.\%]').hasMatch(word);
+  }
+
+  Widget _buildLogo(Brightness brightness) {
+    return Image.asset(
+      'assets/logos/logo.png',
+      color: brightness == Brightness.dark ? Colors.white : null,
+      width: 30,
+      height: 30,
+    );
   }
 
   @override
@@ -144,10 +147,25 @@ class _PipTickerViewState extends State<PipTickerView> with WidgetsBindingObserv
           scrollDirection: Axis.horizontal,
           child: Row(
             children: _liveSegments.map((seg) {
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 40),
-                child: _buildSegmentRichText(seg, nonNumericColor),
-              );
+              // If this segment is the ad, we prepend the logo
+              if (seg == 'Brought to you by Emergitech Solutions') {
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 40),
+                  child: Row(
+                    children: [
+                      _buildLogo(brightness),
+                      const SizedBox(width: 8),
+                      _buildSegmentRichText(seg, nonNumericColor),
+                    ],
+                  ),
+                );
+              } else {
+                // Normal text segments
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 40),
+                  child: _buildSegmentRichText(seg, nonNumericColor),
+                );
+              }
             }).toList(),
           ),
         ),
