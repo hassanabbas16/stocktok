@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "45009812067",
+    "project_id": "stock-tok",
+    "storage_bucket": "stock-tok.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:45009812067:android:36109fa5bc307f853d1656",
+        "android_client_info": {
+          "package_name": "com.clash.stocktok"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC5pIpniKNugvuxoAIqZAfkgrltWObdVlw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

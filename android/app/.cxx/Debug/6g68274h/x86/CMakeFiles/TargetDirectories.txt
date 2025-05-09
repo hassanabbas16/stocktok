@@ -1,0 +1,2 @@
+C:/Users/Lab One/AndroidStudioProjects/stocktok/android/app/.cxx/Debug/6g68274h/x86/CMakeFiles/edit_cache.dir
+C:/Users/Lab One/AndroidStudioProjects/stocktok/android/app/.cxx/Debug/6g68274h/x86/CMakeFiles/rebuild_cache.dir
