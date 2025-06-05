@@ -1,0 +1,2 @@
+C:/Users/Lab One/AndroidStudioProjects/stocktok/android/app/.cxx/Debug/6g68274h/armeabi-v7a/CMakeFiles/edit_cache.dir
+C:/Users/Lab One/AndroidStudioProjects/stocktok/android/app/.cxx/Debug/6g68274h/armeabi-v7a/CMakeFiles/rebuild_cache.dir
