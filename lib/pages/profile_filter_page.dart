@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/rendering.dart';
 
 import '../services/data_repository.dart';
 import 'search_page.dart';
@@ -203,6 +206,65 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
         MaterialPageRoute(builder: (_) => const AuthPage()),
         (route) => false,
       );
+    }
+  }
+
+  /// Open account deletion form
+  Future<void> _openAccountDeletionForm() async {
+    const url = 'https://docs.google.com/forms/d/e/1FAIpQLSfGoCPxcFqlWEp9iTVKoR3H99JLLhD6rAz23_qqqMjGa-IDMA/viewform?usp=header';
+    
+    try {
+      final uri = Uri.parse(url);
+      
+      // Try to launch URL with external application first
+      if (await canLaunchUrl(uri)) {
+        final result = await launchUrl(
+          uri, 
+          mode: LaunchMode.externalApplication,
+        );
+        
+        if (!result) {
+          // If external application fails, try in-app browser
+          await launchUrl(
+            uri,
+            mode: LaunchMode.inAppWebView,
+          );
+        }
+      } else {
+        // If canLaunchUrl returns false, try launching anyway
+        try {
+          await launchUrl(
+            uri,
+            mode: LaunchMode.externalApplication,
+          );
+        } catch (e) {
+          // Final fallback - try in-app browser
+          await launchUrl(
+            uri,
+            mode: LaunchMode.inAppWebView,
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening form: $e'),
+            action: SnackBarAction(
+              label: 'Copy Link',
+              onPressed: () {
+                // Copy the URL to clipboard as fallback
+                Clipboard.setData(const ClipboardData(
+                  text: 'https://docs.google.com/forms/d/e/1FAIpQLSfGoCPxcFqlWEp9iTVKoR3H99JLLhD6rAz23_qqqMjGa-IDMA/viewform?usp=header',
+                ));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Link copied to clipboard')),
+                );
+              },
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -483,6 +545,70 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
               ),
             ),
 
+            // Account Deletion Section
+            Container(
+              width: double.infinity,
+              margin: EdgeInsets.only(bottom: isLandscape ? height * 0.01 : height * 0.02),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.grey[900] : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 6,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: EdgeInsets.all(width * 0.04),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Account Management',
+                      style: TextStyle(
+                        fontSize: width * 0.045,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    const Divider(),
+                    Text(
+                      'Request account deletion',
+                      style: TextStyle(
+                        fontSize: width * 0.04,
+                        color: isDark ? Colors.white70 : Colors.grey[800],
+                      ),
+                    ),
+                    SizedBox(height: height * 0.01),
+                    SizedBox(
+                      width: double.infinity,
+                      height: buttonHeight,
+                      child: ElevatedButton.icon(
+                        onPressed: _openAccountDeletionForm,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red[600],
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        icon: const Icon(Icons.delete_forever),
+                        label: Text(
+                          'Delete Account',
+                          style: TextStyle(
+                            fontSize: buttonFontSize,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
             // Add Stocks
             SizedBox(
               width: double.infinity,
@@ -545,9 +671,6 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
                 ),
               ),
             ),
-
-            // Refer App Section
-            
           ],
         ),
       ),

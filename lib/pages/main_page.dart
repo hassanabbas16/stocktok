@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
@@ -505,143 +506,159 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     // Normal (non-PiP) view.
     return Theme(
       data: _darkMode ? ThemeData.dark() : ThemeData.light(),
-      child: Scaffold(
-        backgroundColor: _darkMode ? Colors.black : null,
-        appBar: AppBar(
-          elevation: 0,
-          automaticallyImplyLeading: false,
-          centerTitle: true,
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Image.asset('assets/icons/auth_logo.png', height: 38,),
-            ],
+      child: GestureDetector(
+        // Add Apple gesture support
+        onHorizontalDragEnd: (details) {
+          // Swipe right to go back (iOS gesture)
+          if (details.primaryVelocity! > 0) {
+            // Swipe right - could be used for navigation or settings
+            _gotoProfileFilters();
+          }
+        },
+        onVerticalDragEnd: (details) {
+          // Swipe down to refresh (iOS gesture)
+          if (details.primaryVelocity! > 0) {
+            _refreshWatchlist();
+          }
+        },
+        child: Scaffold(
+          backgroundColor: _darkMode ? Colors.black : null,
+          appBar: AppBar(
+            elevation: 0,
+            automaticallyImplyLeading: false,
+            centerTitle: true,
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset('assets/icons/auth_logo.png', height: 38,),
+              ],
+            ),
           ),
-        ),
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : filteredWatchlist.isEmpty
-            ? Center(
-          child: ElevatedButton(
-            onPressed: () => _openSearchPage(forceSelection: false),
-            child: const Text('Add Symbols to Watchlist'),
-          ),
-        )
-            : RefreshIndicator(
-          onRefresh: _refreshWatchlist,
-          child: ReorderableListView.builder(
-            itemCount: filteredWatchlist.length,
-            onReorder: _onReorder,
-            itemBuilder: (context, index) {
-              final stock = filteredWatchlist[index];
-              return Column(
-                key: ValueKey('reorder_${stock.symbol}'),
-                children: [
-                  Dismissible(
-                    key: ValueKey('dismiss_${stock.symbol}'),
-                    background: Container(
-                      color: Colors.red,
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.only(right: 16),
-                      child: const Icon(Icons.delete,
-                          color: Colors.white),
+          body: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : filteredWatchlist.isEmpty
+              ? Center(
+            child: ElevatedButton(
+              onPressed: () => _openSearchPage(forceSelection: false),
+              child: const Text('Add Symbols to Watchlist'),
+            ),
+          )
+              : RefreshIndicator(
+            onRefresh: _refreshWatchlist,
+            child: ReorderableListView.builder(
+              itemCount: filteredWatchlist.length,
+              onReorder: _onReorder,
+              itemBuilder: (context, index) {
+                final stock = filteredWatchlist[index];
+                return Column(
+                  key: ValueKey('reorder_${stock.symbol}'),
+                  children: [
+                    Dismissible(
+                      key: ValueKey('dismiss_${stock.symbol}'),
+                      background: Container(
+                        color: Colors.red,
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 16),
+                        child: const Icon(Icons.delete,
+                            color: Colors.white),
+                      ),
+                      direction: DismissDirection.endToStart,
+                      onDismissed: (direction) async {
+                        setState(() {
+                          _watchlistSymbols.remove(stock.symbol);
+                          _watchlistData.remove(stock);
+                        });
+                        await _saveUserWatchlist();
+                        await _refreshWatchlist();
+                        print('Dismissed item: ${stock.symbol}');
+                      },
+                      child: WatchlistCard(
+                        key: ValueKey('watchlistCard-${stock.symbol}'),
+                        stock: stock,
+                        showSymbol: _tickerShowSymbol,
+                        showName: _tickerShowName,
+                        showPrice: _tickerShowPrice,
+                        showPercentChange: _tickerShowPercentChange,
+                        showAbsoluteChange: _tickerShowAbsoluteChange,
+                        showVolume: _tickerShowVolume,
+                        showOpeningPrice: _tickerShowOpeningPrice,
+                        showDailyHighLow: _tickerShowDailyHighLow,
+                        isChecked: false,
+                        onCheckboxChanged: () {},
+                      ),
                     ),
-                    direction: DismissDirection.endToStart,
-                    onDismissed: (direction) async {
-                      setState(() {
-                        _watchlistSymbols.remove(stock.symbol);
-                        _watchlistData.remove(stock);
-                      });
-                      await _saveUserWatchlist();
-                      await _refreshWatchlist();
-                      print('Dismissed item: ${stock.symbol}');
-                    },
-                    child: WatchlistCard(
-                      key: ValueKey('watchlistCard-${stock.symbol}'),
-                      stock: stock,
-                      showSymbol: _tickerShowSymbol,
-                      showName: _tickerShowName,
-                      showPrice: _tickerShowPrice,
-                      showPercentChange: _tickerShowPercentChange,
-                      showAbsoluteChange: _tickerShowAbsoluteChange,
-                      showVolume: _tickerShowVolume,
-                      showOpeningPrice: _tickerShowOpeningPrice,
-                      showDailyHighLow: _tickerShowDailyHighLow,
-                      isChecked: false,
-                      onCheckboxChanged: () {},
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      height: 1,
+                      color: _darkMode
+                          ? Colors.grey.shade600
+                          : Colors.grey.shade300,
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          bottomNavigationBar: Material(
+            elevation: 8,
+            child: Container(
+              height: 60,
+              color: _darkMode ? Colors.black : Theme.of(context).cardColor,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 40,
+                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: _darkMode
+                              ? Colors.grey.shade600
+                              : Colors.grey.shade300,
+                          width: 1,
+                        ),
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (_) => setState(() {}),
+                        decoration: const InputDecoration(
+                          hintText: 'Search...',
+                          border: InputBorder.none,
+                          filled: true,
+                          fillColor: Colors.transparent,
+                        ),
+                        style: TextStyle(
+                          color: _darkMode ? Colors.white : Colors.black,
+                        ),
+                      ),
                     ),
                   ),
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
-                    height: 1,
-                    color: _darkMode
-                        ? Colors.grey.shade600
-                        : Colors.grey.shade300,
+                  IconButton(
+                    icon: const Icon(Icons.play_arrow_rounded),
+                    color: Colors.grey[600],
+                    onPressed: _toggleAnimationMode,
+                    tooltip: 'Toggle Animation Mode',
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      _isFloatingWindowActive
+                          ? Icons.close_fullscreen
+                          : Icons.open_in_full,
+                      color: Colors.grey[600],
+                    ),
+                    onPressed: _toggleFloatingWindow,
+                  ),
+                  IconButton(
+                    iconSize: 24,
+                    icon: Icon(Icons.person, color: Colors.grey[600]),
+                    onPressed: _gotoProfileFilters,
                   ),
                 ],
-              );
-            },
-          ),
-        ),
-        bottomNavigationBar: Material(
-          elevation: 8,
-          child: Container(
-            height: 60,
-            color: _darkMode ? Colors.black : Theme.of(context).cardColor,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 40,
-                    margin: const EdgeInsets.symmetric(vertical: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: _darkMode
-                            ? Colors.grey.shade600
-                            : Colors.grey.shade300,
-                        width: 1,
-                      ),
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      onChanged: (_) => setState(() {}),
-                      decoration: const InputDecoration(
-                        hintText: 'Search...',
-                        border: InputBorder.none,
-                        filled: true,
-                        fillColor: Colors.transparent,
-                      ),
-                      style: TextStyle(
-                        color: _darkMode ? Colors.white : Colors.black,
-                      ),
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.play_arrow_rounded),
-                  color: Colors.grey[600],
-                  onPressed: _toggleAnimationMode,
-                  tooltip: 'Toggle Animation Mode',
-                ),
-                IconButton(
-                  icon: Icon(
-                    _isFloatingWindowActive
-                        ? Icons.close_fullscreen
-                        : Icons.open_in_full,
-                    color: Colors.grey[600],
-                  ),
-                  onPressed: _toggleFloatingWindow,
-                ),
-                IconButton(
-                  iconSize: 24,
-                  icon: Icon(Icons.person, color: Colors.grey[600]),
-                  onPressed: _gotoProfileFilters,
-                ),
-              ],
+              ),
             ),
           ),
         ),
