@@ -431,26 +431,74 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final dataRepo = Provider.of<DataRepository>(context);
 
-    // If PiP mode is active, display only the PipTickerView.
+    // If PiP mode is active, display only the PipTickerView with a close button overlay.
     if (_isFloatingWindowActive) {
+      final width = MediaQuery.of(context).size.width;
+      final isSmall = width < 400;
+      final isDark = _darkMode;
+      final infoColor = isDark ? Colors.white : Colors.black;
       return Theme(
         data: _darkMode ? ThemeData.dark() : ThemeData.light(),
         child: Scaffold(
           backgroundColor: _darkMode ? Colors.black : null,
-          // No app bar in PiP mode.
-          body: PipTickerView(
-            stocks: _watchlistData,
-            displayPrefs: {
-              'showSymbol': _tickerShowSymbol,
-              'showName': _tickerShowName,
-              'showPrice': _tickerShowPrice,
-              'showPercentChange': _tickerShowPercentChange,
-              'showAbsoluteChange': _tickerShowAbsoluteChange,
-              'showVolume': _tickerShowVolume,
-              'showOpeningPrice': _tickerShowOpeningPrice,
-              'showDailyHighLow': _tickerShowDailyHighLow,
-            },
-            separator: _separator,
+          body: Stack(
+            children: [
+              PipTickerView(
+                stocks: _watchlistData,
+                displayPrefs: {
+                  'showSymbol': _tickerShowSymbol,
+                  'showName': _tickerShowName,
+                  'showPrice': _tickerShowPrice,
+                  'showPercentChange': _tickerShowPercentChange,
+                  'showAbsoluteChange': _tickerShowAbsoluteChange,
+                  'showVolume': _tickerShowVolume,
+                  'showOpeningPrice': _tickerShowOpeningPrice,
+                  'showDailyHighLow': _tickerShowDailyHighLow,
+                },
+                separator: _separator,
+              ),
+              // Instructional text (top center)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + (isSmall ? 6 : 16),
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: isSmall ? 6 : 12, vertical: isSmall ? 2 : 6),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Color.alphaBlend(const Color(0x99000000), Colors.black)
+                          : Color.alphaBlend(const Color(0x1F000000), Colors.white),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      'Tap the X to exit',
+                      style: TextStyle(
+                        color: infoColor,
+                        fontSize: isSmall ? 10 : 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // Close button overlay (top right)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + (isSmall ? 2 : 12),
+                right: isSmall ? 4 : 16,
+                child: SafeArea(
+                  child: Material(
+                    color: Colors.transparent,
+                    child: IconButton(
+                      icon: Icon(Icons.close, size: isSmall ? 22 : 32, color: infoColor),
+                      tooltip: 'Exit PiP',
+                      onPressed: _toggleFloatingWindow,
+                      splashRadius: isSmall ? 18 : 24,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -460,6 +508,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     if (_isAnimationModeActive) {
       final orientation = MediaQuery.of(context).orientation;
       final isLandscape = orientation == Orientation.landscape;
+      final width = MediaQuery.of(context).size.width;
+      final isSmall = width < 400;
+      final isDark = _darkMode;
+      final infoColor = isDark ? Colors.white : Colors.black;
       
       return Theme(
         data: _darkMode ? ThemeData.dark() : ThemeData.light(),
@@ -467,37 +519,65 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           backgroundColor: _darkMode ? Colors.black : null,
           appBar: AppBar(
             automaticallyImplyLeading: false,
-            title: 
-                  Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Image.asset('assets/icons/auth_logo.png', height: 38),
-                      ],
-                    ),
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset('assets/icons/auth_logo.png', height: 38),
+              ],
+            ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.close),
+                icon: Icon(Icons.close, color: infoColor),
                 onPressed: _toggleAnimationMode,
               ),
             ],
           ),
-          body: GestureDetector(
-            onTap: _toggleAnimationMode,  // Exit on tap
-            child: CustomScrollingTicker(
-              stocks: _watchlistData,
-              displayPrefs: {
-                'showSymbol': _tickerShowSymbol,
-                'showName': _tickerShowName,
-                'showPrice': _tickerShowPrice,
-                'showPercentChange': _tickerShowPercentChange,
-                'showAbsoluteChange': _tickerShowAbsoluteChange,
-                'showVolume': _tickerShowVolume,
-                'showOpeningPrice': _tickerShowOpeningPrice,
-                'showDailyHighLow': _tickerShowDailyHighLow,
-              },
-              separator: _separator,
-              isLandscape: isLandscape,  // Pass orientation info
-            ),
+          body: Stack(
+            children: [
+              GestureDetector(
+                onTap: _toggleAnimationMode,  // Exit on tap
+                child: CustomScrollingTicker(
+                  stocks: _watchlistData,
+                  displayPrefs: {
+                    'showSymbol': _tickerShowSymbol,
+                    'showName': _tickerShowName,
+                    'showPrice': _tickerShowPrice,
+                    'showPercentChange': _tickerShowPercentChange,
+                    'showAbsoluteChange': _tickerShowAbsoluteChange,
+                    'showVolume': _tickerShowVolume,
+                    'showOpeningPrice': _tickerShowOpeningPrice,
+                    'showDailyHighLow': _tickerShowDailyHighLow,
+                  },
+                  separator: _separator,
+                  isLandscape: isLandscape,  // Pass orientation info
+                ),
+              ),
+              // Instructional text (top center)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + (isSmall ? 6 : 16),
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: isSmall ? 6 : 12, vertical: isSmall ? 2 : 6),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Color.alphaBlend(const Color(0x99000000), Colors.black)
+                          : Color.alphaBlend(const Color(0x1F000000), Colors.white),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      'Tap anywhere or the X to exit',
+                      style: TextStyle(
+                        color: infoColor,
+                        fontSize: isSmall ? 10 : 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       );
