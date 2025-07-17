@@ -130,69 +130,80 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final width = MediaQuery.of(context).size.width;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Container(
-          height: 40,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isDark ? Colors.grey.shade600 : Colors.grey.shade300,
-              width: 1,
-            ),
-          ),
-          child: TextField(
-            controller: _searchController,
-            onChanged: _performSearch,
-            style: TextStyle(
-              color: isDark ? Colors.white : Colors.black87,
-              fontSize: width * 0.04,
-            ),
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search),
-              hintText: 'Search symbol...',
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(vertical: 8),
-            ),
-          ),
-        ),
-        actions: [
-          IconButton(
-            onPressed: _onDone,
-            icon: const Icon(Icons.check),
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _searchResults.isEmpty
-          ? const Center(child: Text('No results found.'))
-          : ListView.builder(
-        itemCount: _searchResults.length,
-        itemBuilder: (ctx, i) {
-          final stock = _searchResults[i];
-          final isChecked = _tempWatchlist.contains(stock.symbol);
-          return Column(
-            children: [
-              SearchResultCard(
-                stock: stock,
-                isChecked: isChecked,
-                onCheckboxChanged: () => _onCheckboxChanged(stock),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final width = constraints.maxWidth;
+        final minHorizontalPadding = 8.0;
+        final maxHorizontalPadding = 32.0;
+        final horizontalPadding = (width * 0.03).clamp(minHorizontalPadding, maxHorizontalPadding);
+        final minFontSize = 14.0;
+        final maxFontSize = 22.0;
+        final searchFontSize = (width * 0.04).clamp(minFontSize, maxFontSize);
+        return Scaffold(
+          appBar: AppBar(
+            title: Container(
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isDark ? Colors.grey.shade600 : Colors.grey.shade300,
+                  width: 1,
+                ),
               ),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                height: 1,
-                color: isDark ? Colors.grey[600] : Colors.grey[300],
+              child: TextField(
+                controller: _searchController,
+                onChanged: _performSearch,
+                style: TextStyle(
+                  color: isDark ? Colors.white : Colors.black87,
+                  fontSize: searchFontSize,
+                ),
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search),
+                  hintText: 'Search symbol...',
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(vertical: 8),
+                ),
+              ),
+            ),
+            actions: [
+              IconButton(
+                onPressed: _onDone,
+                icon: const Icon(Icons.check),
               ),
             ],
-          );
-        },
-      ),
+          ),
+          body: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _searchResults.isEmpty
+                  ? const Center(child: Text('No results found.'))
+                  : ListView.builder(
+                      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                      itemCount: _searchResults.length,
+                      itemBuilder: (ctx, i) {
+                        final stock = _searchResults[i];
+                        final isChecked = _tempWatchlist.contains(stock.symbol);
+                        return Column(
+                          children: [
+                            SearchResultCard(
+                              stock: stock,
+                              isChecked: isChecked,
+                              onCheckboxChanged: () => _onCheckboxChanged(stock),
+                              tight: true,
+                            ),
+                            Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 8),
+                              height: 1,
+                              color: isDark ? Colors.grey[600] : Colors.grey[300],
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+        );
+      },
     );
   }
 }

@@ -16,6 +16,7 @@ class WatchlistCard extends StatefulWidget {
 
   final bool isChecked; // we won’t display a checkbox, but kept for logic
   final VoidCallback onCheckboxChanged;
+  final bool tight;
 
   const WatchlistCard({
     Key? key,
@@ -30,6 +31,7 @@ class WatchlistCard extends StatefulWidget {
     required this.showDailyHighLow,
     required this.isChecked,
     required this.onCheckboxChanged,
+    this.tight = false,
   }) : super(key: key);
 
   @override
@@ -41,133 +43,143 @@ class _WatchlistCardState extends State<WatchlistCard> {
 
   @override
   Widget build(BuildContext context) {
-    final color = (widget.stock.absoluteChange >= 0) ? Colors.green : Colors.red;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final minFontSize = widget.tight ? 16.0 : 14.0;
+        final maxFontSize = widget.tight ? 24.0 : 22.0;
+        final nameFontSize = (width * 0.045).clamp(minFontSize, maxFontSize);
+        final symbolFontSize = (width * 0.05).clamp(minFontSize, maxFontSize + 2);
+        final priceFontSize = (width * 0.05).clamp(minFontSize, maxFontSize + 2);
+        final changeFontSize = (width * 0.037).clamp(minFontSize - 2, maxFontSize);
+        final padding = widget.tight ? (width * 0.02).clamp(6.0, 16.0) : (width * 0.04).clamp(12.0, 32.0);
+        final extraItemFontSize = (width * 0.04).clamp(minFontSize - 2, maxFontSize);
+        final extraItemLabelFontSize = (width * 0.04).clamp(minFontSize - 2, maxFontSize);
+        final color = (widget.stock.absoluteChange >= 0) ? Colors.green : Colors.red;
 
-    // Top row: left (name & symbol) and right (price & changes)
-    Widget topRow = Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        // Left side: name + symbol wrapped in an Expanded widget.
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (widget.showName)
-              // Use LayoutBuilder and ConstrainedBox to limit width to 65%
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    return ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: constraints.maxWidth * 0.70,
-                      ),
-                      child: Text(
-                        widget.stock.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              if (widget.showSymbol)
-                Text(
-                  widget.stock.symbol,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
-                ),
-            ],
-          ),
-        ),
-        // Right side: price & changes.
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
+        Widget topRow = Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            if (widget.showPrice)
-              Text(
-                '\$${widget.stock.currentPrice.toStringAsFixed(2)}',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: color,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            if (widget.showAbsoluteChange || widget.showPercentChange)
-              Row(
-                mainAxisSize: MainAxisSize.min,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (widget.showAbsoluteChange)
-                    Text(
-                      '${widget.stock.absoluteChange >= 0 ? '+' : ''}${widget.stock.absoluteChange.toStringAsFixed(2)} ',
-                      style: TextStyle(color: color, fontSize: 14),
+                  if (widget.showName)
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        return ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: constraints.maxWidth * 0.70,
+                          ),
+                          child: Text(
+                            widget.stock.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              fontSize: nameFontSize,
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  if (widget.showPercentChange)
+                  if (widget.showSymbol)
                     Text(
-                      '(${widget.stock.percentChange >= 0 ? '+' : ''}${widget.stock.percentChange.toStringAsFixed(2)}%)',
-                      style: TextStyle(color: color, fontSize: 14),
+                      widget.stock.symbol,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontSize: symbolFontSize,
+                      ),
                     ),
                 ],
               ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (widget.showPrice)
+                  Text(
+                    '\$${widget.stock.currentPrice.toStringAsFixed(2)}',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: color,
+                      fontSize: priceFontSize,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                if (widget.showAbsoluteChange || widget.showPercentChange)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (widget.showAbsoluteChange)
+                        Text(
+                          '${widget.stock.absoluteChange >= 0 ? '+' : ''}${widget.stock.absoluteChange.toStringAsFixed(2)} ',
+                          style: TextStyle(color: color, fontSize: changeFontSize),
+                        ),
+                      if (widget.showPercentChange)
+                        Text(
+                          '(${widget.stock.percentChange >= 0 ? '+' : ''}${widget.stock.percentChange.toStringAsFixed(2)}%)',
+                          style: TextStyle(color: color, fontSize: changeFontSize),
+                        ),
+                    ],
+                  ),
+              ],
+            ),
           ],
-        ),
-      ],
-    );
-
-    // Expanded row: shows extra info when tapped.
-    Widget? expandedRow;
-    if (_isExpanded) {
-      List<Widget> extraItems = [];
-      if (widget.showVolume) {
-        extraItems.add(_buildExtraItem('Vol', widget.stock.volume.toString()));
-      }
-      if (widget.showOpeningPrice) {
-        extraItems.add(_buildExtraItem('Open', '\$${widget.stock.openPrice.toStringAsFixed(2)}'));
-      }
-      if (widget.showDailyHighLow) {
-        extraItems.add(
-          _buildExtraItem(
-            'H/L',
-            '\$${widget.stock.highPrice.toStringAsFixed(2)} / \$${widget.stock.lowPrice.toStringAsFixed(2)}',
-          ),
         );
-      }
-      if (extraItems.isNotEmpty) {
-        expandedRow = Padding(
-          padding: const EdgeInsets.only(top: 8.0),
-          child: Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 12,
-            runSpacing: 8,
-            children: extraItems,
-          ),
-        );
-      }
-    }
 
-    return GestureDetector(
-      onTap: () => setState(() => _isExpanded = !_isExpanded),
-      child: Container(
-        color: Colors.transparent,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            topRow,
-            if (expandedRow != null)
-              Center(
-                child: expandedRow,
+        Widget? expandedRow;
+        if (_isExpanded) {
+          List<Widget> extraItems = [];
+          if (widget.showVolume) {
+            extraItems.add(_buildExtraItem('Vol', widget.stock.volume.toString(), extraItemLabelFontSize, extraItemFontSize));
+          }
+          if (widget.showOpeningPrice) {
+            extraItems.add(_buildExtraItem('Open', '\$${widget.stock.openPrice.toStringAsFixed(2)}', extraItemLabelFontSize, extraItemFontSize));
+          }
+          if (widget.showDailyHighLow) {
+            extraItems.add(
+              _buildExtraItem(
+                'H/L',
+                '\$${widget.stock.highPrice.toStringAsFixed(2)} / \$${widget.stock.lowPrice.toStringAsFixed(2)}',
+                extraItemLabelFontSize, extraItemFontSize,
               ),
-          ],
-        ),
-      ),
+            );
+          }
+          if (extraItems.isNotEmpty) {
+            expandedRow = Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 12,
+                runSpacing: 8,
+                children: extraItems,
+              ),
+            );
+          }
+        }
+
+        return GestureDetector(
+          onTap: () => setState(() => _isExpanded = !_isExpanded),
+          child: Container(
+            color: Colors.transparent,
+            padding: EdgeInsets.all(padding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                topRow,
+                if (expandedRow != null)
+                  Center(
+                    child: expandedRow,
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildExtraItem(String label, String value) {
+  Widget _buildExtraItem(String label, String value, double labelFontSize, double valueFontSize) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -175,11 +187,14 @@ class _WatchlistCardState extends State<WatchlistCard> {
           '$label: ',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.bold,
+            fontSize: labelFontSize,
           ),
         ),
         Text(
           value,
-          style: Theme.of(context).textTheme.bodyMedium,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontSize: valueFontSize,
+          ),
         ),
       ],
     );

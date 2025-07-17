@@ -140,70 +140,77 @@ class _CustomScrollingTickerState extends State<CustomScrollingTicker> with Widg
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final nonNumericColor = (brightness == Brightness.dark) ? Colors.white : Colors.black;
-    final bgColor = (brightness == Brightness.dark) ? Colors.black : Colors.white;
-    
-    // Adjust horizontal margins based on orientation
-    final horizontalMargin = widget.isLandscape ? 80.0 : 40.0;
-
-    return Container(
-      color: bgColor,
-      child: Center(
-        child: SingleChildScrollView(
-          controller: _scrollController,
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: _liveSegments.map((seg) {
-              // If this segment is the ad, we prepend the logo
-              if (seg == 'Brought to you by Emergitech Solutions') {
-                return Container(
-                  margin: EdgeInsets.symmetric(horizontal: horizontalMargin),
-                  child: Row(
-                    children: [
-                      _buildLogo(brightness),
-                      SizedBox(width: widget.isLandscape ? 12 : 8),
-                      _buildSegmentRichText(seg, nonNumericColor),
-                    ],
-                  ),
-                );
-              } else {
-                // Normal text segments
-                return Container(
-                  margin: EdgeInsets.symmetric(horizontal: horizontalMargin),
-                  child: _buildSegmentRichText(seg, nonNumericColor),
-                );
-              }
-            }).toList(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final brightness = Theme.of(context).brightness;
+        final width = constraints.maxWidth;
+        final isLandscape = widget.isLandscape;
+        final minFontSize = 16.0;
+        final maxFontSize = 32.0;
+        final fontSize = (width * (isLandscape ? 0.035 : 0.022)).clamp(minFontSize, maxFontSize);
+        final minMargin = 24.0;
+        final maxMargin = 120.0;
+        final horizontalMargin = (width * (isLandscape ? 0.12 : 0.06)).clamp(minMargin, maxMargin);
+        final minLogo = 24.0;
+        final maxLogo = 64.0;
+        final logoSize = (width * (isLandscape ? 0.06 : 0.04)).clamp(minLogo, maxLogo);
+        final nonNumericColor = (brightness == Brightness.dark) ? Colors.white : Colors.black;
+        final bgColor = (brightness == Brightness.dark) ? Colors.black : Colors.white;
+        return Container(
+          color: bgColor,
+          child: Center(
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _liveSegments.map((seg) {
+                  if (seg == 'Brought to you by Emergitech Solutions') {
+                    return Container(
+                      margin: EdgeInsets.symmetric(horizontal: horizontalMargin),
+                      child: Row(
+                        children: [
+                          Image.asset(
+                            'assets/logos/logo.png',
+                            color: brightness == Brightness.dark ? Colors.white : null,
+                            width: logoSize,
+                            height: logoSize,
+                          ),
+                          SizedBox(width: isLandscape ? 12 : 8),
+                          _buildSegmentRichText(seg, nonNumericColor, fontSize),
+                        ],
+                      ),
+                    );
+                  } else {
+                    return Container(
+                      margin: EdgeInsets.symmetric(horizontal: horizontalMargin),
+                      child: _buildSegmentRichText(seg, nonNumericColor, fontSize),
+                    );
+                  }
+                }).toList(),
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildSegmentRichText(String segment, Color nonNumericColor) {
+  Widget _buildSegmentRichText(String segment, Color nonNumericColor, double fontSize) {
     final words = segment.split(' ');
     final List<TextSpan> spans = [];
-    
-    // Larger font size in landscape
-    final double fontSize = widget.isLandscape ? 30.0 : 18.0;
     final fontWeight = FontWeight.bold;
-
     for (var word in words) {
       bool isPositive = word.contains('+') && !word.contains('Vol') && !word.contains('AD');
       bool isNegative = word.contains('-') && !word.contains('Vol') && !word.contains('AD');
-
       Color color = nonNumericColor;
       if (_isNumericWord(word)) {
         color = isPositive ? Colors.green : (isNegative ? Colors.red : nonNumericColor);
       }
-
       spans.add(TextSpan(
         text: '$word ',
         style: TextStyle(color: color, fontSize: fontSize, fontWeight: fontWeight),
       ));
     }
-
     return RichText(text: TextSpan(children: spans));
   }
 } 

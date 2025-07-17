@@ -135,63 +135,75 @@ class _PipTickerViewState extends State<PipTickerView> with WidgetsBindingObserv
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final nonNumericColor = (brightness == Brightness.dark) ? Colors.white : Colors.black;
-    final bgColor = (brightness == Brightness.dark) ? Colors.black : Colors.white;
-
-    return Container(
-      color: bgColor,
-      child: Center(
-        child: SingleChildScrollView(
-          controller: _scrollController,
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: _liveSegments.map((seg) {
-              // If this segment is the ad, we prepend the logo
-              if (seg == 'Brought to you by Emergitech Solutions') {
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 40),
-                  child: Row(
-                    children: [
-                      _buildLogo(brightness),
-                      const SizedBox(width: 8),
-                      _buildSegmentRichText(seg, nonNumericColor),
-                    ],
-                  ),
-                );
-              } else {
-                // Normal text segments
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 40),
-                  child: _buildSegmentRichText(seg, nonNumericColor),
-                );
-              }
-            }).toList(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final brightness = Theme.of(context).brightness;
+        final width = constraints.maxWidth;
+        final minFontSize = 14.0;
+        final maxFontSize = 28.0;
+        final fontSize = (width * 0.022).clamp(minFontSize, maxFontSize);
+        final minMargin = 16.0;
+        final maxMargin = 80.0;
+        final horizontalMargin = (width * 0.06).clamp(minMargin, maxMargin);
+        final minLogo = 20.0;
+        final maxLogo = 48.0;
+        final logoSize = (width * 0.04).clamp(minLogo, maxLogo);
+        final nonNumericColor = (brightness == Brightness.dark) ? Colors.white : Colors.black;
+        final bgColor = (brightness == Brightness.dark) ? Colors.black : Colors.white;
+        return Container(
+          color: bgColor,
+          child: Center(
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _liveSegments.map((seg) {
+                  if (seg == 'Brought to you by Emergitech Solutions') {
+                    return Container(
+                      margin: EdgeInsets.symmetric(horizontal: horizontalMargin),
+                      child: Row(
+                        children: [
+                          Image.asset(
+                            'assets/logos/logo.png',
+                            color: brightness == Brightness.dark ? Colors.white : null,
+                            width: logoSize,
+                            height: logoSize,
+                          ),
+                          const SizedBox(width: 8),
+                          _buildSegmentRichText(seg, nonNumericColor, fontSize),
+                        ],
+                      ),
+                    );
+                  } else {
+                    return Container(
+                      margin: EdgeInsets.symmetric(horizontal: horizontalMargin),
+                      child: _buildSegmentRichText(seg, nonNumericColor, fontSize),
+                    );
+                  }
+                }).toList(),
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildSegmentRichText(String segment, Color nonNumericColor) {
+  Widget _buildSegmentRichText(String segment, Color nonNumericColor, double fontSize) {
     final words = segment.split(' ');
     final List<TextSpan> spans = [];
-
     for (var word in words) {
       bool isPositive = word.contains('+') && !word.contains('Vol') && !word.contains('AD');
       bool isNegative = word.contains('-') && !word.contains('Vol') && !word.contains('AD');
-
       Color color = nonNumericColor;
       if (_isNumericWord(word)) {
         color = isPositive ? Colors.green : (isNegative ? Colors.red : nonNumericColor);
       }
-
       spans.add(TextSpan(
         text: '$word ',
-        style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold),
+        style: TextStyle(color: color, fontSize: fontSize, fontWeight: FontWeight.bold),
       ));
     }
-
     return RichText(text: TextSpan(children: spans));
   }
 }

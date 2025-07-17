@@ -190,80 +190,85 @@ class _AuthPageState extends State<AuthPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final width = MediaQuery.of(context).size.width;
-    final height = MediaQuery.of(context).size.height;
-
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      // iOS-friendly keyboard handling
-      resizeToAvoidBottomInset: true,
-      body: SafeArea(
-        child: Center(
-          child: isLoading
-              ? const CircularProgressIndicator()
-              : SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(horizontal: width * 0.06),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Logo
-                      Image.asset(
-                        'assets/icons/auth_logo.png',
-                        height: height * 0.08,
-                      ),
-                      SizedBox(height: height * 0.04),
-
-                      // Form Fields
-                      _buildTextField(_emailController, 'Email', Icons.email_outlined, isDark),
-                      SizedBox(height: height * 0.02),
-                      _buildTextField(_passwordController, 'Password', Icons.lock_outline, isDark, isPassword: true),
-                      SizedBox(height: height * 0.02),
-
-                      // Action Buttons
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton(
-                          onPressed: isLogin ? _login : _signup,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryColor,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          ),
-                          child: Text(
-                            isLogin ? 'Login' : 'Sign Up',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final width = constraints.maxWidth;
+        final height = constraints.maxHeight;
+        final minButtonHeight = 48.0;
+        final maxButtonHeight = 70.0;
+        final buttonHeight = (height * 0.07).clamp(minButtonHeight, maxButtonHeight);
+        final minLogoHeight = 48.0;
+        final maxLogoHeight = 120.0;
+        final logoHeight = (height * 0.08).clamp(minLogoHeight, maxLogoHeight);
+        final horizontalPadding = (width * 0.06).clamp(16.0, 64.0);
+        return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          resizeToAvoidBottomInset: true,
+          body: SafeArea(
+            child: Center(
+              child: isLoading
+                  ? const CircularProgressIndicator()
+                  : SingleChildScrollView(
+                      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: height - MediaQuery.of(context).padding.vertical),
+                        child: IntrinsicHeight(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Image.asset(
+                                'assets/icons/auth_logo.png',
+                                height: logoHeight,
+                              ),
+                              SizedBox(height: height * 0.04),
+                              _buildTextField(_emailController, 'Email', Icons.email_outlined, isDark),
+                              SizedBox(height: height * 0.02),
+                              _buildTextField(_passwordController, 'Password', Icons.lock_outline, isDark, isPassword: true),
+                              SizedBox(height: height * 0.02),
+                              SizedBox(
+                                width: double.infinity,
+                                height: buttonHeight,
+                                child: ElevatedButton(
+                                  onPressed: isLogin ? _login : _signup,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: primaryColor,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                  ),
+                                  child: Text(
+                                    isLogin ? 'Login' : 'Sign Up',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: height * 0.02),
+                              TextButton(
+                                onPressed: () => setState(() => isLogin = !isLogin),
+                                child: Text(
+                                  isLogin ? 'Don\'t have an account? Sign Up' : 'Already have an account? Login',
+                                  style: TextStyle(color: primaryColor),
+                                ),
+                              ),
+                              if (isLogin) ...[
+                                SizedBox(height: height * 0.01),
+                                TextButton(
+                                  onPressed: _showForgotPasswordSheet,
+                                  child: Text(
+                                    'Forgot Password?',
+                                    style: TextStyle(color: primaryColor),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ),
-                      SizedBox(height: height * 0.02),
-
-                      // Toggle Login/Signup
-                      TextButton(
-                        onPressed: () => setState(() => isLogin = !isLogin),
-                        child: Text(
-                          isLogin ? 'Don\'t have an account? Sign Up' : 'Already have an account? Login',
-                          style: TextStyle(color: primaryColor),
-                        ),
-                      ),
-
-                      // Forgot Password (only show on login)
-                      if (isLogin) ...[
-                        SizedBox(height: height * 0.01),
-                        TextButton(
-                          onPressed: _showForgotPasswordSheet,
-                          child: Text(
-                            'Forgot Password?',
-                            style: TextStyle(color: primaryColor),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-        ),
-      ),
+                    ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

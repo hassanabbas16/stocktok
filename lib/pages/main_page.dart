@@ -407,7 +407,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     // Check for authentication first
     if (FirebaseAuth.instance.currentUser == null) {
-      // If not authenticated, immediately redirect to AuthPage
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _cleanup();
         Navigator.of(context).pushAndRemoveUntil(
@@ -420,329 +419,346 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       );
     }
 
-    // Add auth state listener
     FirebaseAuth.instance.authStateChanges().listen((User? user) {
       if (user == null && mounted) {
         _checkAuthAndRedirect();
       }
     });
 
-    // If authenticated, show the main page content
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final dataRepo = Provider.of<DataRepository>(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final width = constraints.maxWidth;
+        final height = constraints.maxHeight;
+        final minHorizontalPadding = 8.0;
+        final maxHorizontalPadding = 32.0;
+        final horizontalPadding = (width * 0.03).clamp(minHorizontalPadding, maxHorizontalPadding);
+        final minButtonHeight = 48.0;
+        final maxButtonHeight = 70.0;
+        final buttonHeight = (height * 0.07).clamp(minButtonHeight, maxButtonHeight);
+        final minFontSize = 14.0;
+        final maxFontSize = 22.0;
+        final searchFontSize = (width * 0.04).clamp(minFontSize, maxFontSize);
+        final iconSize = (width * 0.06).clamp(24.0, 40.0);
+        final logoHeight = (height * 0.06).clamp(32.0, 60.0);
+        final bottomBarHeight = (height * 0.08).clamp(56.0, 80.0);
 
-    // If PiP mode is active, display only the PipTickerView with a close button overlay.
-    if (_isFloatingWindowActive) {
-      final width = MediaQuery.of(context).size.width;
-      final isSmall = width < 400;
-      final isDark = _darkMode;
-      final infoColor = isDark ? Colors.white : Colors.black;
-      return Theme(
-        data: _darkMode ? ThemeData.dark() : ThemeData.light(),
-        child: Scaffold(
-          backgroundColor: _darkMode ? Colors.black : null,
-          body: Stack(
-            children: [
-              PipTickerView(
-                stocks: _watchlistData,
-                displayPrefs: {
-                  'showSymbol': _tickerShowSymbol,
-                  'showName': _tickerShowName,
-                  'showPrice': _tickerShowPrice,
-                  'showPercentChange': _tickerShowPercentChange,
-                  'showAbsoluteChange': _tickerShowAbsoluteChange,
-                  'showVolume': _tickerShowVolume,
-                  'showOpeningPrice': _tickerShowOpeningPrice,
-                  'showDailyHighLow': _tickerShowDailyHighLow,
-                },
-                separator: _separator,
-              ),
-              // Instructional text (top center)
-              Positioned(
-                top: MediaQuery.of(context).padding.top + (isSmall ? 6 : 16),
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: isSmall ? 6 : 12, vertical: isSmall ? 2 : 6),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? Color.alphaBlend(const Color(0x99000000), Colors.black)
-                          : Color.alphaBlend(const Color(0x1F000000), Colors.white),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      'Tap the X to exit',
-                      style: TextStyle(
-                        color: infoColor,
-                        fontSize: isSmall ? 10 : 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              // Close button overlay (top right)
-              Positioned(
-                top: MediaQuery.of(context).padding.top + (isSmall ? 2 : 12),
-                right: isSmall ? 4 : 16,
-                child: SafeArea(
-                  child: Material(
-                    color: Colors.transparent,
-                    child: IconButton(
-                      icon: Icon(Icons.close, size: isSmall ? 22 : 32, color: infoColor),
-                      tooltip: 'Exit PiP',
-                      onPressed: _toggleFloatingWindow,
-                      splashRadius: isSmall ? 18 : 24,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Animation-only mode - shows the PipTickerView with a way to exit
-    if (_isAnimationModeActive) {
-      final orientation = MediaQuery.of(context).orientation;
-      final isLandscape = orientation == Orientation.landscape;
-      final width = MediaQuery.of(context).size.width;
-      final isSmall = width < 400;
-      final isDark = _darkMode;
-      final infoColor = isDark ? Colors.white : Colors.black;
-      
-      return Theme(
-        data: _darkMode ? ThemeData.dark() : ThemeData.light(),
-        child: Scaffold(
-          backgroundColor: _darkMode ? Colors.black : null,
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
-            title: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Image.asset('assets/icons/auth_logo.png', height: 38),
-              ],
-            ),
-            actions: [
-              IconButton(
-                icon: Icon(Icons.close, color: infoColor),
-                onPressed: _toggleAnimationMode,
-              ),
-            ],
-          ),
-          body: Stack(
-            children: [
-              GestureDetector(
-                onTap: _toggleAnimationMode,  // Exit on tap
-                child: CustomScrollingTicker(
-                  stocks: _watchlistData,
-                  displayPrefs: {
-                    'showSymbol': _tickerShowSymbol,
-                    'showName': _tickerShowName,
-                    'showPrice': _tickerShowPrice,
-                    'showPercentChange': _tickerShowPercentChange,
-                    'showAbsoluteChange': _tickerShowAbsoluteChange,
-                    'showVolume': _tickerShowVolume,
-                    'showOpeningPrice': _tickerShowOpeningPrice,
-                    'showDailyHighLow': _tickerShowDailyHighLow,
-                  },
-                  separator: _separator,
-                  isLandscape: isLandscape,  // Pass orientation info
-                ),
-              ),
-              // Instructional text (top center)
-              Positioned(
-                top: MediaQuery.of(context).padding.top + (isSmall ? 6 : 16),
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: isSmall ? 6 : 12, vertical: isSmall ? 2 : 6),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? Color.alphaBlend(const Color(0x99000000), Colors.black)
-                          : Color.alphaBlend(const Color(0x1F000000), Colors.white),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      'Tap anywhere or the X to exit',
-                      style: TextStyle(
-                        color: infoColor,
-                        fontSize: isSmall ? 10 : 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Normal (non-PiP) view.
-    return Theme(
-      data: _darkMode ? ThemeData.dark() : ThemeData.light(),
-      child: GestureDetector(
-        // Add Apple gesture support
-        onHorizontalDragEnd: (details) {
-          // Swipe right to go back (iOS gesture)
-          if (details.primaryVelocity! > 0) {
-            // Swipe right - could be used for navigation or settings
-            _gotoProfileFilters();
-          }
-        },
-        onVerticalDragEnd: (details) {
-          // Swipe down to refresh (iOS gesture)
-          if (details.primaryVelocity! > 0) {
-            _refreshWatchlist();
-          }
-        },
-        child: Scaffold(
-          backgroundColor: _darkMode ? Colors.black : null,
-          appBar: AppBar(
-            elevation: 0,
-            automaticallyImplyLeading: false,
-            centerTitle: true,
-            title: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Image.asset('assets/icons/auth_logo.png', height: 38,),
-              ],
-            ),
-          ),
-          body: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : filteredWatchlist.isEmpty
-              ? Center(
-            child: ElevatedButton(
-              onPressed: () => _openSearchPage(forceSelection: false),
-              child: const Text('Add Symbols to Watchlist'),
-            ),
-          )
-              : RefreshIndicator(
-            onRefresh: _refreshWatchlist,
-            child: ReorderableListView.builder(
-              itemCount: filteredWatchlist.length,
-              onReorder: _onReorder,
-              itemBuilder: (context, index) {
-                final stock = filteredWatchlist[index];
-                return Column(
-                  key: ValueKey('reorder_${stock.symbol}'),
-                  children: [
-                    Dismissible(
-                      key: ValueKey('dismiss_${stock.symbol}'),
-                      background: Container(
-                        color: Colors.red,
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 16),
-                        child: const Icon(Icons.delete,
-                            color: Colors.white),
-                      ),
-                      direction: DismissDirection.endToStart,
-                      onDismissed: (direction) async {
-                        setState(() {
-                          _watchlistSymbols.remove(stock.symbol);
-                          _watchlistData.remove(stock);
-                        });
-                        await _saveUserWatchlist();
-                        await _refreshWatchlist();
-                        print('Dismissed item: ${stock.symbol}');
-                      },
-                      child: WatchlistCard(
-                        key: ValueKey('watchlistCard-${stock.symbol}'),
-                        stock: stock,
-                        showSymbol: _tickerShowSymbol,
-                        showName: _tickerShowName,
-                        showPrice: _tickerShowPrice,
-                        showPercentChange: _tickerShowPercentChange,
-                        showAbsoluteChange: _tickerShowAbsoluteChange,
-                        showVolume: _tickerShowVolume,
-                        showOpeningPrice: _tickerShowOpeningPrice,
-                        showDailyHighLow: _tickerShowDailyHighLow,
-                        isChecked: false,
-                        onCheckboxChanged: () {},
-                      ),
-                    ),
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
-                      height: 1,
-                      color: _darkMode
-                          ? Colors.grey.shade600
-                          : Colors.grey.shade300,
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-          bottomNavigationBar: Material(
-            elevation: 8,
-            child: Container(
-              height: 60,
-              color: _darkMode ? Colors.black : Theme.of(context).cardColor,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Row(
+        // If PiP mode is active, display only the PipTickerView with a close button overlay.
+        if (_isFloatingWindowActive) {
+          final isSmall = width < 400;
+          final infoColor = isDark ? Colors.white : Colors.black;
+          return Theme(
+            data: _darkMode ? ThemeData.dark() : ThemeData.light(),
+            child: Scaffold(
+              backgroundColor: _darkMode ? Colors.black : null,
+              body: Stack(
                 children: [
-                  Expanded(
-                    child: Container(
-                      height: 40,
-                      margin: const EdgeInsets.symmetric(vertical: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
+                  PipTickerView(
+                    stocks: _watchlistData,
+                    displayPrefs: {
+                      'showSymbol': _tickerShowSymbol,
+                      'showName': _tickerShowName,
+                      'showPrice': _tickerShowPrice,
+                      'showPercentChange': _tickerShowPercentChange,
+                      'showAbsoluteChange': _tickerShowAbsoluteChange,
+                      'showVolume': _tickerShowVolume,
+                      'showOpeningPrice': _tickerShowOpeningPrice,
+                      'showDailyHighLow': _tickerShowDailyHighLow,
+                    },
+                    separator: _separator,
+                  ),
+                  Positioned(
+                    top: MediaQuery.of(context).padding.top + (isSmall ? 6 : 16),
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: isSmall ? 6 : 12, vertical: isSmall ? 2 : 6),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Color.alphaBlend(const Color(0x99000000), Colors.black)
+                              : Color.alphaBlend(const Color(0x1F000000), Colors.white),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          'Tap the X to exit',
+                          style: TextStyle(
+                            color: infoColor,
+                            fontSize: isSmall ? 10 : 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: MediaQuery.of(context).padding.top + (isSmall ? 2 : 12),
+                    right: isSmall ? 4 : 16,
+                    child: SafeArea(
+                      child: Material(
                         color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: _darkMode
-                              ? Colors.grey.shade600
-                              : Colors.grey.shade300,
-                          width: 1,
-                        ),
-                      ),
-                      child: TextField(
-                        controller: _searchController,
-                        onChanged: (_) => setState(() {}),
-                        decoration: const InputDecoration(
-                          hintText: 'Search...',
-                          border: InputBorder.none,
-                          filled: true,
-                          fillColor: Colors.transparent,
-                        ),
-                        style: TextStyle(
-                          color: _darkMode ? Colors.white : Colors.black,
+                        child: IconButton(
+                          icon: Icon(Icons.close, size: isSmall ? 22 : 32, color: infoColor),
+                          tooltip: 'Exit PiP',
+                          onPressed: _toggleFloatingWindow,
+                          splashRadius: isSmall ? 18 : 24,
                         ),
                       ),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.play_arrow_rounded),
-                    color: Colors.grey[600],
-                    onPressed: _toggleAnimationMode,
-                    tooltip: 'Toggle Animation Mode',
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      _isFloatingWindowActive
-                          ? Icons.close_fullscreen
-                          : Icons.open_in_full,
-                      color: Colors.grey[600],
-                    ),
-                    onPressed: _toggleFloatingWindow,
-                  ),
-                  IconButton(
-                    iconSize: 24,
-                    icon: Icon(Icons.person, color: Colors.grey[600]),
-                    onPressed: _gotoProfileFilters,
                   ),
                 ],
               ),
             ),
+          );
+        }
+
+        // Animation-only mode - shows the PipTickerView with a way to exit
+        if (_isAnimationModeActive) {
+          final orientation = MediaQuery.of(context).orientation;
+          final isLandscape = orientation == Orientation.landscape;
+          final isSmall = width < 400;
+          final infoColor = isDark ? Colors.white : Colors.black;
+          return Theme(
+            data: _darkMode ? ThemeData.dark() : ThemeData.light(),
+            child: Scaffold(
+              backgroundColor: _darkMode ? Colors.black : null,
+              appBar: AppBar(
+                automaticallyImplyLeading: false,
+                title: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Image.asset('assets/icons/auth_logo.png', height: logoHeight),
+                  ],
+                ),
+                actions: [
+                  IconButton(
+                    icon: Icon(Icons.close, color: infoColor),
+                    onPressed: _toggleAnimationMode,
+                  ),
+                ],
+              ),
+              body: Stack(
+                children: [
+                  GestureDetector(
+                    onTap: _toggleAnimationMode,
+                    child: CustomScrollingTicker(
+                      stocks: _watchlistData,
+                      displayPrefs: {
+                        'showSymbol': _tickerShowSymbol,
+                        'showName': _tickerShowName,
+                        'showPrice': _tickerShowPrice,
+                        'showPercentChange': _tickerShowPercentChange,
+                        'showAbsoluteChange': _tickerShowAbsoluteChange,
+                        'showVolume': _tickerShowVolume,
+                        'showOpeningPrice': _tickerShowOpeningPrice,
+                        'showDailyHighLow': _tickerShowDailyHighLow,
+                      },
+                      separator: _separator,
+                      isLandscape: isLandscape,
+                    ),
+                  ),
+                  Positioned(
+                    top: MediaQuery.of(context).padding.top + (isSmall ? 6 : 16),
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: isSmall ? 6 : 12, vertical: isSmall ? 2 : 6),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Color.alphaBlend(const Color(0x99000000), Colors.black)
+                              : Color.alphaBlend(const Color(0x1F000000), Colors.white),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          'Tap anywhere or the X to exit',
+                          style: TextStyle(
+                            color: infoColor,
+                            fontSize: isSmall ? 10 : 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // Normal (non-PiP) view.
+        return Theme(
+          data: _darkMode ? ThemeData.dark() : ThemeData.light(),
+          child: GestureDetector(
+            onHorizontalDragEnd: (details) {
+              if (details.primaryVelocity! > 0) {
+                _gotoProfileFilters();
+              }
+            },
+            onVerticalDragEnd: (details) {
+              if (details.primaryVelocity! > 0) {
+                _refreshWatchlist();
+              }
+            },
+            child: Scaffold(
+              backgroundColor: _darkMode ? Colors.black : null,
+              appBar: AppBar(
+                elevation: 0,
+                automaticallyImplyLeading: false,
+                centerTitle: true,
+                title: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Image.asset('assets/icons/auth_logo.png', height: logoHeight),
+                  ],
+                ),
+              ),
+              body: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : filteredWatchlist.isEmpty
+                      ? Center(
+                          child: SizedBox(
+                            width: double.infinity,
+                            height: buttonHeight,
+                            child: ElevatedButton(
+                              onPressed: () => _openSearchPage(forceSelection: false),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF2E9712),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              ),
+                              child: const Text('Add Symbols to Watchlist'),
+                            ),
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: _refreshWatchlist,
+                          child: ReorderableListView.builder(
+                            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                            itemCount: filteredWatchlist.length,
+                            onReorder: _onReorder,
+                            itemBuilder: (context, index) {
+                              final stock = filteredWatchlist[index];
+                              return Column(
+                                key: ValueKey('reorder_${stock.symbol}'),
+                                children: [
+                                  Dismissible(
+                                    key: ValueKey('dismiss_${stock.symbol}'),
+                                    background: Container(
+                                      color: Colors.red,
+                                      alignment: Alignment.centerRight,
+                                      padding: const EdgeInsets.only(right: 16),
+                                      child: const Icon(Icons.delete,
+                                          color: Colors.white),
+                                    ),
+                                    direction: DismissDirection.endToStart,
+                                    onDismissed: (direction) async {
+                                      setState(() {
+                                        _watchlistSymbols.remove(stock.symbol);
+                                        _watchlistData.remove(stock);
+                                      });
+                                      await _saveUserWatchlist();
+                                      await _refreshWatchlist();
+                                      print('Dismissed item: ${stock.symbol}');
+                                    },
+                                    child: WatchlistCard(
+                                      key: ValueKey('watchlistCard-${stock.symbol}'),
+                                      stock: stock,
+                                      showSymbol: _tickerShowSymbol,
+                                      showName: _tickerShowName,
+                                      showPrice: _tickerShowPrice,
+                                      showPercentChange: _tickerShowPercentChange,
+                                      showAbsoluteChange: _tickerShowAbsoluteChange,
+                                      showVolume: _tickerShowVolume,
+                                      showOpeningPrice: _tickerShowOpeningPrice,
+                                      showDailyHighLow: _tickerShowDailyHighLow,
+                                      isChecked: false,
+                                      onCheckboxChanged: () {},
+                                      tight: true,
+                                    ),
+                                  ),
+                                  Container(
+                                    margin: const EdgeInsets.symmetric(horizontal: 8),
+                                    height: 1,
+                                    color: _darkMode
+                                        ? Colors.grey.shade600
+                                        : Colors.grey.shade300,
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+              bottomNavigationBar: Material(
+                elevation: 8,
+                child: Container(
+                  height: bottomBarHeight,
+                  color: _darkMode ? Colors.black : Theme.of(context).cardColor,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: buttonHeight * 0.8,
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: _darkMode
+                                  ? Colors.grey.shade600
+                                  : Colors.grey.shade300,
+                              width: 1,
+                            ),
+                          ),
+                          child: TextField(
+                            controller: _searchController,
+                            onChanged: (_) => setState(() {}),
+                            decoration: const InputDecoration(
+                              hintText: 'Search...',
+                              border: InputBorder.none,
+                              filled: true,
+                              fillColor: Colors.transparent,
+                            ),
+                            style: TextStyle(
+                              color: _darkMode ? Colors.white : Colors.black,
+                              fontSize: searchFontSize,
+                            ),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.play_arrow_rounded),
+                        color: Colors.grey[600],
+                        iconSize: iconSize,
+                        onPressed: _toggleAnimationMode,
+                        tooltip: 'Toggle Animation Mode',
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          _isFloatingWindowActive
+                              ? Icons.close_fullscreen
+                              : Icons.open_in_full,
+                          color: Colors.grey[600],
+                        ),
+                        iconSize: iconSize,
+                        onPressed: _toggleFloatingWindow,
+                      ),
+                      IconButton(
+                        iconSize: iconSize,
+                        icon: Icon(Icons.person, color: Colors.grey[600]),
+                        onPressed: _gotoProfileFilters,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

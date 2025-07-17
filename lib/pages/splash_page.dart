@@ -6,144 +6,153 @@ class SplashPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final width = MediaQuery.of(context).size.width;
-    final height = MediaQuery.of(context).size.height;
-
-    return Scaffold(
-      // Use the theme's scaffoldBackgroundColor
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: width * 0.06),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Logo + App Name
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Image.asset('assets/icons/auth_logo.png', height: height * 0.05)
-                ],
-              ),
-
-              SizedBox(height: height * 0.05),
-
-              // Stock Cards in Hierarchy
-              SizedBox(
-                height: height * 0.25,
-                width: width,
-                child: Stack(
-                  alignment: Alignment.center,
-                  clipBehavior: Clip.none,
-                  children: [
-                    Positioned(
-                      top: height * 0.06,
-                      left: width * 0.1,
-                      child: stockCard(
-                        'AAPL',
-                        '+108,68%',
-                        'assets/logos/apple.png',
-                        Colors.blue,
-                        width * 0.22,
-                        height * 0.11,
-                        isDark,
-                      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final width = constraints.maxWidth;
+        final height = constraints.maxHeight;
+        final minButtonHeight = 48.0;
+        final maxButtonHeight = 70.0;
+        final buttonHeight = (height * 0.07).clamp(minButtonHeight, maxButtonHeight);
+        final minLogoHeight = 48.0;
+        final maxLogoHeight = 120.0;
+        final logoHeight = (height * 0.08).clamp(minLogoHeight, maxLogoHeight);
+        final horizontalPadding = (width * 0.06).clamp(16.0, 64.0);
+        final cardWidth = (width * 0.22).clamp(80.0, 220.0);
+        final cardHeight = (height * 0.11).clamp(48.0, 120.0);
+        final stackHeight = (height * 0.25).clamp(160.0, 320.0);
+        final stackTopOffset = (height * 0.06).clamp(12.0, 48.0);
+        final stackTopOffset2 = (height * 0.04).clamp(8.0, 32.0);
+        final stackTopOffset3 = (height * 0.12).clamp(24.0, 64.0);
+        return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          body: SafeArea(
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: height - MediaQuery.of(context).padding.vertical),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Image.asset('assets/icons/auth_logo.png', height: logoHeight),
+                          ],
+                        ),
+                        SizedBox(height: height * 0.05),
+                        SizedBox(
+                          height: stackHeight,
+                          width: width,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            clipBehavior: Clip.none,
+                            children: [
+                              Positioned(
+                                top: stackTopOffset,
+                                left: width * 0.1,
+                                child: stockCard(
+                                  'AAPL',
+                                  '+108,68%',
+                                  'assets/logos/apple.png',
+                                  Colors.blue,
+                                  cardWidth,
+                                  cardHeight,
+                                  isDark,
+                                ),
+                              ),
+                              Positioned(
+                                top: stackTopOffset2,
+                                right: width * 0.1,
+                                child: stockCard(
+                                  'UNVR',
+                                  '+82,34%',
+                                  'assets/logos/uni.png',
+                                  Colors.orange,
+                                  cardWidth,
+                                  cardHeight,
+                                  isDark,
+                                ),
+                              ),
+                              Positioned(
+                                top: 0,
+                                child: stockCard(
+                                  'TSLA',
+                                  '-54,49%',
+                                  'assets/logos/tesla.png',
+                                  Colors.red,
+                                  cardWidth,
+                                  cardHeight,
+                                  isDark,
+                                ),
+                              ),
+                              Positioned(
+                                top: stackTopOffset3,
+                                child: stockCard(
+                                  'BTC',
+                                  '+198,39%',
+                                  'assets/logos/bitcoin.png',
+                                  Colors.green,
+                                  cardWidth,
+                                  cardHeight,
+                                  isDark,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: height * 0.05),
+                        Text(
+                          'Track Stocks In Real-Time',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: (width * 0.06).clamp(20.0, 36.0),
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Get instant price updates & insights at a glance.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: (width * 0.035).clamp(14.0, 22.0),
+                            color: isDark ? const Color(0xFFC2C2C2) : Colors.grey[600],
+                          ),
+                        ),
+                        SizedBox(height: height * 0.05),
+                        SizedBox(
+                          width: double.infinity,
+                          height: buttonHeight,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.of(context).pushReplacement(
+                                MaterialPageRoute(builder: (context) => const AuthPage()),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF2E9712),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            ),
+                            child: const Text(
+                              "Let's Get Started",
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: height * 0.03),
+                      ],
                     ),
-                    Positioned(
-                      top: height * 0.04,
-                      right: width * 0.1,
-                      child: stockCard(
-                        'UNVR',
-                        '+82,34%',
-                        'assets/logos/uni.png',
-                        Colors.orange,
-                        width * 0.22,
-                        height * 0.11,
-                        isDark,
-                      ),
-                    ),
-                    Positioned(
-                      top: 0,
-                      child: stockCard(
-                        'TSLA',
-                        '-54,49%',
-                        'assets/logos/tesla.png',
-                        Colors.red,
-                        width * 0.22,
-                        height * 0.11,
-                        isDark,
-                      ),
-                    ),
-                    Positioned(
-                      top: height * 0.12,
-                      child: stockCard(
-                        'BTC',
-                        '+198,39%',
-                        'assets/logos/bitcoin.png',
-                        Colors.green,
-                        width * 0.22,
-                        height * 0.11,
-                        isDark,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              SizedBox(height: height * 0.05),
-
-              // Main Heading
-              Text(
-                'Track Stocks In Real-Time',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: width * 0.06,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black,
-                ),
-              ),
-
-              const SizedBox(height: 4),
-
-              // Subheading
-              Text(
-                'Get instant price updates & insights at a glance.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: width * 0.035,
-                  color: isDark ? const Color(0xFFC2C2C2) : Colors.grey[600],
-                ),
-              ),
-
-              SizedBox(height: height * 0.05),
-
-              // Button
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (context) => const AuthPage()),
-                    );
-                  },
-                  // Only change the background color to #E5F64A; keep the rest
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2E9712),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
-                  child: const Text(
-                    "Let's Get Started",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
