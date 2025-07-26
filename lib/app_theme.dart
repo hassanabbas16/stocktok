@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 
 const MaterialColor kStockGreen = MaterialColor(
-  0xFF008000,
+  0xFF2E9712,
   <int, Color>{
-    50: Color(0xFFE0F2E9),
-    100: Color(0xFFB3DEC6),
-    200: Color(0xFF80C9A1),
-    300: Color(0xFF4DB47C),
-    400: Color(0xFF26A362),
-    500: Color(0xFF008000),
-    600: Color(0xFF007400),
-    700: Color(0xFF006300),
-    800: Color(0xFF005300),
-    900: Color(0xFF003700),
+    50: Color(0xFFE8F5E8),
+    100: Color(0xFFC5E6C5),
+    200: Color(0xFF9FD69F),
+    300: Color(0xFF79C679),
+    400: Color(0xFF5CBA5C),
+    500: Color(0xFF2E9712),
+    600: Color(0xFF298F10),
+    700: Color(0xFF23840D),
+    800: Color(0xFF1D7A0A),
+    900: Color(0xFF126805),
   },
 );
 

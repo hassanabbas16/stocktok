@@ -25,7 +25,7 @@ class _MyAppState extends State<MyApp> {
     return OverlaySupport.global(
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'StockTok',
+        title: 'Stock Stream',
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
         themeMode: dataRepo.darkMode ? ThemeMode.dark : ThemeMode.light,

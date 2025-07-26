@@ -105,7 +105,7 @@ class SplashPage extends StatelessWidget {
                         ),
                         SizedBox(height: height * 0.05),
                         Text(
-                          'Track Stocks In Real-Time',
+                          'Stock Stream',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: (width * 0.06).clamp(20.0, 36.0),
@@ -115,7 +115,7 @@ class SplashPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Get instant price updates & insights at a glance.',
+                          'Track stocks in real-time with live streaming ticker.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: (width * 0.035).clamp(14.0, 22.0),

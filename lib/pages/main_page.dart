@@ -557,30 +557,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                       isLandscape: isLandscape,
                     ),
                   ),
-                  Positioned(
-                    top: MediaQuery.of(context).padding.top + (isSmall ? 6 : 16),
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: isSmall ? 6 : 12, vertical: isSmall ? 2 : 6),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? Color.alphaBlend(const Color(0x99000000), Colors.black)
-                              : Color.alphaBlend(const Color(0x1F000000), Colors.white),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          'Tap anywhere or the X to exit',
-                          style: TextStyle(
-                            color: infoColor,
-                            fontSize: isSmall ? 10 : 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+
                 ],
               ),
             ),
@@ -611,6 +588,15 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Image.asset('assets/icons/auth_logo.png', height: logoHeight),
+                    SizedBox(width: 8),
+                    Text(
+                      'Stock Stream',
+                      style: TextStyle(
+                        fontSize: logoHeight * 0.4,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -695,16 +681,16 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                 child: Container(
                   height: bottomBarHeight,
                   color: _darkMode ? Colors.black : Theme.of(context).cardColor,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                   child: Row(
                     children: [
                       Expanded(
                         child: Container(
                           height: buttonHeight * 0.8,
                           margin: const EdgeInsets.symmetric(vertical: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
                           decoration: BoxDecoration(
-                            color: Colors.transparent,
+                            color: _darkMode ? Colors.grey[800] : Colors.grey[100],
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: _darkMode
@@ -716,11 +702,16 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                           child: TextField(
                             controller: _searchController,
                             onChanged: (_) => setState(() {}),
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               hintText: 'Search...',
+                              hintStyle: TextStyle(
+                                color: _darkMode ? Colors.white70 : Colors.grey[600],
+                                fontSize: searchFontSize,
+                              ),
                               border: InputBorder.none,
                               filled: true,
                               fillColor: Colors.transparent,
+                              contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                             ),
                             style: TextStyle(
                               color: _darkMode ? Colors.white : Colors.black,

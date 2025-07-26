@@ -84,8 +84,11 @@ class _SearchPageState extends State<SearchPage> {
 
     setState(() => _isLoading = true);
 
-    // 1) Local matches from polygonCache.
-    final localMatches = dataRepo.searchSymbols(query.trim());
+    // 1) Local matches from polygonCache by symbol or name.
+    final localMatches = dataRepo.polygonCache.values.where((s) {
+      final q = query.trim().toLowerCase();
+      return s.symbol.toLowerCase().contains(q) || s.name.toLowerCase().contains(q);
+    }).toList();
     List<StockData> finalResults = [...localMatches];
 
     // 2) Also fetch from TwelveData to see if a single ticker quote can be found.
@@ -111,6 +114,9 @@ class _SearchPageState extends State<SearchPage> {
         _tempWatchlist.remove(stock.symbol);
       } else {
         _tempWatchlist.add(stock.symbol);
+        // Auto-clear search box after adding a stock
+        _searchController.clear();
+        _performSearch('');
       }
     });
   }
@@ -146,7 +152,7 @@ class _SearchPageState extends State<SearchPage> {
               height: 40,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: Colors.transparent,
+                color: isDark ? Colors.grey[800] : Colors.grey[100],
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: isDark ? Colors.grey.shade600 : Colors.grey.shade300,
@@ -160,11 +166,12 @@ class _SearchPageState extends State<SearchPage> {
                   color: isDark ? Colors.white : Colors.black87,
                   fontSize: searchFontSize,
                 ),
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.search),
+                decoration: InputDecoration(
+                  prefixIcon: Icon(Icons.search, color: isDark ? Colors.white70 : Colors.grey[600]),
                   hintText: 'Search symbol...',
+                  hintStyle: TextStyle(color: isDark ? Colors.white70 : Colors.grey[600]),
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(vertical: 8),
+                  contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                 ),
               ),
             ),

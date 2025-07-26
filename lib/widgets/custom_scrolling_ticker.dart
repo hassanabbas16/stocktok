@@ -24,8 +24,8 @@ class _CustomScrollingTickerState extends State<CustomScrollingTicker> with Widg
   final ScrollController _scrollController = ScrollController();
   Timer? _scrollTimer;
 
-  static const double _scrollSpeed = 1.0;
-  static const Duration _scrollInterval = Duration(milliseconds: 15);
+  static const double _scrollSpeed = 2.5; // Increased speed
+  static const Duration _scrollInterval = Duration(milliseconds: 10); // Faster interval
 
   final List<String> _liveSegments = [];
 
@@ -145,15 +145,16 @@ class _CustomScrollingTickerState extends State<CustomScrollingTicker> with Widg
         final brightness = Theme.of(context).brightness;
         final width = constraints.maxWidth;
         final isLandscape = widget.isLandscape;
-        final minFontSize = 16.0;
-        final maxFontSize = 32.0;
-        final fontSize = (width * (isLandscape ? 0.035 : 0.022)).clamp(minFontSize, maxFontSize);
-        final minMargin = 24.0;
-        final maxMargin = 120.0;
-        final horizontalMargin = (width * (isLandscape ? 0.12 : 0.06)).clamp(minMargin, maxMargin);
-        final minLogo = 24.0;
-        final maxLogo = 64.0;
-        final logoSize = (width * (isLandscape ? 0.06 : 0.04)).clamp(minLogo, maxLogo);
+        final isTablet = width >= 600;
+        final minFontSize = isTablet ? 24.0 : 16.0;
+        final maxFontSize = isTablet ? 48.0 : 32.0;
+        final fontSize = (width * (isLandscape ? 0.045 : 0.03)).clamp(minFontSize, maxFontSize);
+        final minMargin = isTablet ? 12.0 : 16.0;
+        final maxMargin = isTablet ? 40.0 : 80.0;
+        final horizontalMargin = (width * (isLandscape ? 0.04 : 0.025)).clamp(minMargin, maxMargin); // Reduced gap
+        final minLogo = isTablet ? 32.0 : 24.0;
+        final maxLogo = isTablet ? 80.0 : 64.0;
+        final logoSize = (width * (isLandscape ? 0.08 : 0.05)).clamp(minLogo, maxLogo);
         final nonNumericColor = (brightness == Brightness.dark) ? Colors.white : Colors.black;
         final bgColor = (brightness == Brightness.dark) ? Colors.black : Colors.white;
         return Container(

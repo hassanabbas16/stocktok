@@ -41,8 +41,20 @@ class _AuthPageState extends State<AuthPage> {
         );
       }
     } catch (e) {
+      String errorMessage = 'Login failed. Please try again.';
+      
+      if (e.toString().contains('user-not-found')) {
+        errorMessage = 'Account not found. Please sign up first.';
+      } else if (e.toString().contains('wrong-password')) {
+        errorMessage = 'Incorrect password. Please try again.';
+      } else if (e.toString().contains('invalid-email')) {
+        errorMessage = 'Invalid email format.';
+      } else if (e.toString().contains('too-many-requests')) {
+        errorMessage = 'Too many failed attempts. Please try again later.';
+      }
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text(errorMessage)),
       );
     } finally {
       if (mounted) setState(() => isLoading = false);
@@ -65,8 +77,18 @@ class _AuthPageState extends State<AuthPage> {
       // After successful signup, switch to login
       setState(() => isLogin = true);
     } catch (e) {
+      String errorMessage = 'Signup failed. Please try again.';
+      
+      if (e.toString().contains('email-already-in-use')) {
+        errorMessage = 'Email already registered. Please login instead.';
+      } else if (e.toString().contains('weak-password')) {
+        errorMessage = 'Password is too weak. Please use a stronger password.';
+      } else if (e.toString().contains('invalid-email')) {
+        errorMessage = 'Invalid email format.';
+      }
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text(errorMessage)),
       );
     } finally {
       if (mounted) setState(() => isLoading = false);

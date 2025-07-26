@@ -157,12 +157,20 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
       try {
         await user.updatePassword(_newPasswordController.text);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Password changed successfully!')),
+          const SnackBar(content: Text('Password changed successfully! Please log out and log back in.')),
         );
         _newPasswordController.clear();
       } catch (e) {
+        String errorMessage = 'Error changing password. Please try again.';
+        
+        if (e.toString().contains('requires-recent-login')) {
+          errorMessage = 'Please log out and log back in before changing your password.';
+        } else if (e.toString().contains('weak-password')) {
+          errorMessage = 'Password is too weak. Please use a stronger password.';
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error changing password: $e')),
+          SnackBar(content: Text(errorMessage)),
         );
       }
     }

@@ -22,8 +22,8 @@ class _PipTickerViewState extends State<PipTickerView> with WidgetsBindingObserv
   final ScrollController _scrollController = ScrollController();
   Timer? _scrollTimer;
 
-  static const double _scrollSpeed = 1.0;
-  static const Duration _scrollInterval = Duration(milliseconds: 15);
+  static const double _scrollSpeed = 2.5; // Increased speed
+  static const Duration _scrollInterval = Duration(milliseconds: 10); // Faster interval
 
   final List<String> _liveSegments = [];
 
@@ -139,15 +139,16 @@ class _PipTickerViewState extends State<PipTickerView> with WidgetsBindingObserv
       builder: (context, constraints) {
         final brightness = Theme.of(context).brightness;
         final width = constraints.maxWidth;
-        final minFontSize = 14.0;
-        final maxFontSize = 28.0;
-        final fontSize = (width * 0.022).clamp(minFontSize, maxFontSize);
-        final minMargin = 16.0;
-        final maxMargin = 80.0;
-        final horizontalMargin = (width * 0.06).clamp(minMargin, maxMargin);
-        final minLogo = 20.0;
-        final maxLogo = 48.0;
-        final logoSize = (width * 0.04).clamp(minLogo, maxLogo);
+        final isTablet = width >= 600;
+        final minFontSize = isTablet ? 20.0 : 14.0;
+        final maxFontSize = isTablet ? 40.0 : 28.0;
+        final fontSize = (width * 0.03).clamp(minFontSize, maxFontSize);
+        final minMargin = isTablet ? 8.0 : 12.0;
+        final maxMargin = isTablet ? 32.0 : 80.0;
+        final horizontalMargin = (width * 0.025).clamp(minMargin, maxMargin); // Reduced gap
+        final minLogo = isTablet ? 28.0 : 20.0;
+        final maxLogo = isTablet ? 64.0 : 48.0;
+        final logoSize = (width * 0.05).clamp(minLogo, maxLogo);
         final nonNumericColor = (brightness == Brightness.dark) ? Colors.white : Colors.black;
         final bgColor = (brightness == Brightness.dark) ? Colors.black : Colors.white;
         return Container(
