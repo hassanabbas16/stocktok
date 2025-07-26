@@ -111,7 +111,7 @@ class _CustomScrollingTickerState extends State<CustomScrollingTicker> with Widg
     _scrollTimer = Timer.periodic(_scrollInterval, (_) {
       if (!_scrollController.hasClients) return;
 
-      final maxScroll = _scrollController.position.maxScrollExtent;
+      final maxScroll = _scrollController.position.maxScrollExtent + (widget.stocks.length * 100);
       final newPos = _scrollController.offset + _scrollSpeed;
 
       if (newPos >= maxScroll / 2) {

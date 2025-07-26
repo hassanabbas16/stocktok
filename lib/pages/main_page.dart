@@ -34,7 +34,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   bool _isFloatingWindowActive = false;
   bool _isAnimationModeActive = false;
   bool _isLoading = false;
-
   // Ticker filter preferences.
   bool _tickerShowSymbol         = true;
   bool _tickerShowName           = true;
@@ -61,6 +60,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+
 
     // Mark that we're on the main page (for PiP-service usage).
     Future.delayed(const Duration(milliseconds: 100), () {
@@ -433,15 +434,16 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         final minHorizontalPadding = 8.0;
         final maxHorizontalPadding = 32.0;
         final horizontalPadding = (width * 0.03).clamp(minHorizontalPadding, maxHorizontalPadding);
-        final minButtonHeight = 48.0;
-        final maxButtonHeight = 70.0;
+        final isTablet = width >= 600;
+        final minButtonHeight = isTablet ? 56.0 : 48.0;
+        final maxButtonHeight = isTablet ? 80.0 : 70.0;
         final buttonHeight = (height * 0.07).clamp(minButtonHeight, maxButtonHeight);
-        final minFontSize = 14.0;
-        final maxFontSize = 22.0;
+        final minFontSize = isTablet ? 16.0 : 14.0;
+        final maxFontSize = isTablet ? 24.0 : 22.0;
         final searchFontSize = (width * 0.04).clamp(minFontSize, maxFontSize);
-        final iconSize = (width * 0.06).clamp(24.0, 40.0);
+        final iconSize = (width * 0.06).clamp(isTablet ? 28.0 : 24.0, isTablet ? 48.0 : 40.0);
         final logoHeight = (height * 0.06).clamp(32.0, 60.0);
-        final bottomBarHeight = (height * 0.08).clamp(56.0, 80.0);
+        final bottomBarHeight = (height * 0.08).clamp(isTablet ? 64.0 : 56.0, isTablet ? 96.0 : 80.0);
 
         // If PiP mode is active, display only the PipTickerView with a close button overlay.
         if (_isFloatingWindowActive) {
@@ -579,173 +581,185 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
               }
             },
             child: Scaffold(
-              backgroundColor: _darkMode ? Colors.black : null,
-              appBar: AppBar(
-                elevation: 0,
-                automaticallyImplyLeading: false,
-                centerTitle: true,
-                title: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Image.asset('assets/icons/auth_logo.png', height: logoHeight),
-                    SizedBox(width: 8),
-                    Text(
-                      'Stock Stream',
-                      style: TextStyle(
-                        fontSize: logoHeight * 0.4,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              body: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : filteredWatchlist.isEmpty
-                      ? Center(
-                          child: SizedBox(
-                            width: double.infinity,
-                            height: buttonHeight,
-                            child: ElevatedButton(
-                              onPressed: () => _openSearchPage(forceSelection: false),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF2E9712),
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              ),
-                              child: const Text('Add Symbols to Watchlist'),
-                            ),
-                          ),
-                        )
-                      : RefreshIndicator(
-                          onRefresh: _refreshWatchlist,
-                          child: ReorderableListView.builder(
-                            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                            itemCount: filteredWatchlist.length,
-                            onReorder: _onReorder,
-                            itemBuilder: (context, index) {
-                              final stock = filteredWatchlist[index];
-                              return Column(
-                                key: ValueKey('reorder_${stock.symbol}'),
-                                children: [
-                                  Dismissible(
-                                    key: ValueKey('dismiss_${stock.symbol}'),
-                                    background: Container(
-                                      color: Colors.red,
-                                      alignment: Alignment.centerRight,
-                                      padding: const EdgeInsets.only(right: 16),
-                                      child: const Icon(Icons.delete,
-                                          color: Colors.white),
-                                    ),
-                                    direction: DismissDirection.endToStart,
-                                    onDismissed: (direction) async {
-                                      setState(() {
-                                        _watchlistSymbols.remove(stock.symbol);
-                                        _watchlistData.remove(stock);
-                                      });
-                                      await _saveUserWatchlist();
-                                      await _refreshWatchlist();
-                                      print('Dismissed item: ${stock.symbol}');
-                                    },
-                                    child: WatchlistCard(
-                                      key: ValueKey('watchlistCard-${stock.symbol}'),
-                                      stock: stock,
-                                      showSymbol: _tickerShowSymbol,
-                                      showName: _tickerShowName,
-                                      showPrice: _tickerShowPrice,
-                                      showPercentChange: _tickerShowPercentChange,
-                                      showAbsoluteChange: _tickerShowAbsoluteChange,
-                                      showVolume: _tickerShowVolume,
-                                      showOpeningPrice: _tickerShowOpeningPrice,
-                                      showDailyHighLow: _tickerShowDailyHighLow,
-                                      isChecked: false,
-                                      onCheckboxChanged: () {},
-                                      tight: true,
-                                    ),
-                                  ),
-                                  Container(
-                                    margin: const EdgeInsets.symmetric(horizontal: 8),
-                                    height: 1,
-                                    color: _darkMode
-                                        ? Colors.grey.shade600
-                                        : Colors.grey.shade300,
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                        ),
-              bottomNavigationBar: Material(
-                elevation: 8,
-                child: Container(
-                  height: bottomBarHeight,
-                  color: _darkMode ? Colors.black : Theme.of(context).cardColor,
-                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                  child: Row(
+              body: Stack(
+                children: [
+                  // Main content
+                  Column(
                     children: [
+                      // AppBar
+                      AppBar(
+                        elevation: 0,
+                        automaticallyImplyLeading: false,
+                        centerTitle: true,
+                        title: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Image.asset('assets/icons/auth_logo.png', height: logoHeight),
+                          ],
+                        ),
+                      ),
+                      // Body content
                       Expanded(
+                        child: _isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : filteredWatchlist.isEmpty
+                                ? Center(
+                                    child: SizedBox(
+                                      width: double.infinity,
+                                      height: buttonHeight,
+                                      child: ElevatedButton(
+                                        onPressed: () => _openSearchPage(forceSelection: false),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF2E9712),
+                                          foregroundColor: Colors.white,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                        ),
+                                        child: const Text('Add Symbols to Watchlist'),
+                                      ),
+                                    ),
+                                  )
+                                : RefreshIndicator(
+                                    onRefresh: _refreshWatchlist,
+                                    child: ReorderableListView.builder(
+                                      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                                      itemCount: filteredWatchlist.length,
+                                      onReorder: _onReorder,
+                                      itemBuilder: (context, index) {
+                                        final stock = filteredWatchlist[index];
+                                        return Column(
+                                          key: ValueKey('reorder_${stock.symbol}'),
+                                          children: [
+                                            Dismissible(
+                                              key: ValueKey('dismiss_${stock.symbol}'),
+                                              background: Container(
+                                                color: Colors.red,
+                                                alignment: Alignment.centerRight,
+                                                padding: const EdgeInsets.only(right: 16),
+                                                child: const Icon(Icons.delete,
+                                                    color: Colors.white),
+                                              ),
+                                              direction: DismissDirection.endToStart,
+                                              onDismissed: (direction) async {
+                                                setState(() {
+                                                  _watchlistSymbols.remove(stock.symbol);
+                                                  _watchlistData.remove(stock);
+                                                });
+                                                await _saveUserWatchlist();
+                                                await _refreshWatchlist();
+                                                print('Dismissed item: ${stock.symbol}');
+                                              },
+                                              child: WatchlistCard(
+                                                key: ValueKey('watchlistCard-${stock.symbol}'),
+                                                stock: stock,
+                                                showSymbol: _tickerShowSymbol,
+                                                showName: _tickerShowName,
+                                                showPrice: _tickerShowPrice,
+                                                showPercentChange: _tickerShowPercentChange,
+                                                showAbsoluteChange: _tickerShowAbsoluteChange,
+                                                showVolume: _tickerShowVolume,
+                                                showOpeningPrice: _tickerShowOpeningPrice,
+                                                showDailyHighLow: _tickerShowDailyHighLow,
+                                                isChecked: false,
+                                                onCheckboxChanged: () {},
+                                                tight: true,
+                                              ),
+                                            ),
+                                            Container(
+                                              margin: const EdgeInsets.symmetric(horizontal: 8),
+                                              height: 1,
+                                              color: _darkMode
+                                                  ? Colors.grey.shade600
+                                                  : Colors.grey.shade300,
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                  ),
+                      ),
+                      // Bottom navigation bar
+                      Material(
+                        elevation: 8,
                         child: Container(
-                          height: buttonHeight * 0.8,
-                          margin: const EdgeInsets.symmetric(vertical: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: _darkMode ? Colors.grey[800] : Colors.grey[100],
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: _darkMode
-                                  ? Colors.grey.shade600
-                                  : Colors.grey.shade300,
-                              width: 1,
-                            ),
-                          ),
-                          child: TextField(
-                            controller: _searchController,
-                            onChanged: (_) => setState(() {}),
-                            decoration: InputDecoration(
-                              hintText: 'Search...',
-                              hintStyle: TextStyle(
-                                color: _darkMode ? Colors.white70 : Colors.grey[600],
-                                fontSize: searchFontSize,
+                          height: bottomBarHeight,
+                          color: _darkMode ? Colors.black : Theme.of(context).cardColor,
+                          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Container(
+                                  height: buttonHeight * 0.8,
+                                  margin: const EdgeInsets.symmetric(vertical: 8),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  decoration: BoxDecoration(
+                                    color: _darkMode ? Colors.grey[800] : Colors.grey[100],
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: _darkMode
+                                          ? Colors.grey.shade600
+                                          : Colors.grey.shade300,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: TextField(
+                                    controller: _searchController,
+                                    onChanged: (_) => setState(() {}),
+                                    decoration: InputDecoration(
+                                      hintText: 'Search stocks...',
+                                      hintStyle: TextStyle(
+                                        color: _darkMode ? Colors.white70 : Colors.grey[600],
+                                        fontSize: searchFontSize,
+                                      ),
+                                      border: InputBorder.none,
+                                      filled: true,
+                                      fillColor: Colors.transparent,
+                                      contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                                    ),
+                                    style: TextStyle(
+                                      color: _darkMode ? Colors.white : Colors.black,
+                                      fontSize: searchFontSize,
+                                    ),
+                                    textInputAction: TextInputAction.search,
+                                    onSubmitted: (value) {
+                                      // Handle search submission if needed
+                                      FocusScope.of(context).unfocus();
+                                    },
+                                  ),
+                                ),
                               ),
-                              border: InputBorder.none,
-                              filled: true,
-                              fillColor: Colors.transparent,
-                              contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                            ),
-                            style: TextStyle(
-                              color: _darkMode ? Colors.white : Colors.black,
-                              fontSize: searchFontSize,
-                            ),
+                              IconButton(
+                                icon: const Icon(Icons.play_arrow_rounded),
+                                color: Colors.grey[600],
+                                iconSize: iconSize,
+                                onPressed: _toggleAnimationMode,
+                                tooltip: 'Toggle Animation Mode',
+                              ),
+                              IconButton(
+                                icon: Icon(
+                                  _isFloatingWindowActive
+                                      ? Icons.close_fullscreen
+                                      : Icons.open_in_full,
+                                  color: Colors.grey[600],
+                                ),
+                                iconSize: iconSize,
+                                onPressed: _toggleFloatingWindow,
+                              ),
+                              IconButton(
+                                iconSize: iconSize,
+                                icon: Icon(Icons.person, color: Colors.grey[600]),
+                                onPressed: _gotoProfileFilters,
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.play_arrow_rounded),
-                        color: Colors.grey[600],
-                        iconSize: iconSize,
-                        onPressed: _toggleAnimationMode,
-                        tooltip: 'Toggle Animation Mode',
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          _isFloatingWindowActive
-                              ? Icons.close_fullscreen
-                              : Icons.open_in_full,
-                          color: Colors.grey[600],
-                        ),
-                        iconSize: iconSize,
-                        onPressed: _toggleFloatingWindow,
-                      ),
-                      IconButton(
-                        iconSize: iconSize,
-                        icon: Icon(Icons.person, color: Colors.grey[600]),
-                        onPressed: _gotoProfileFilters,
                       ),
                     ],
                   ),
-                ),
+                  
+                ],
               ),
+              backgroundColor: _darkMode ? Colors.black : null,
+              resizeToAvoidBottomInset: true,
             ),
           ),
         );

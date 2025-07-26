@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/rendering.dart';
+import 'dart:io' show Platform;
 
 import '../services/data_repository.dart';
 import 'search_page.dart';
@@ -276,6 +277,51 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
     }
   }
 
+  /// Share app functionality
+  void _shareApp() async {
+    final String appName = 'Stock Stream';
+    final String appDescription = 'Real-time stock ticker with customizable watchlist & in-app market insights. Stay ahead of the market with our real-time, customizable stock ticker app.';
+    
+    String shareText = '$appName\n\n$appDescription\n\n';
+    
+    // Add platform-specific app store links
+    if (Platform.isIOS) {
+      shareText += 'Download on App Store: https://apps.apple.com/app/stock-stream-app/id6747456894';
+    } else if (Platform.isAndroid) {
+      shareText += 'Download on Google Play: https://play.google.com/store/apps/details?id=com.clash.stocktok';
+    } else {
+      // Fallback for web or other platforms
+      shareText += 'Download on App Store: https://apps.apple.com/app/stock-stream-app/id6747456894\n';
+      shareText += 'Download on Google Play: https://play.google.com/store/apps/details?id=com.clash.stocktok';
+    }
+    
+    // Copy to clipboard and show success message
+    await Clipboard.setData(ClipboardData(text: shareText));
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('App link copied to clipboard! Share it with your friends.'),
+          action: SnackBarAction(
+            label: 'Share',
+            onPressed: () async {
+              // Try to open the native share dialog
+              final Uri url = Uri.parse(
+                Platform.isIOS 
+                  ? 'https://apps.apple.com/app/stock-stream-app/id6747456894'
+                  : 'https://play.google.com/store/apps/details?id=com.clash.stocktok'
+              );
+              
+              if (await canLaunchUrl(url)) {
+                await launchUrl(url, mode: LaunchMode.externalApplication);
+              }
+            },
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -540,12 +586,7 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
                                   Icons.share,
                                   color: isDark ? Colors.white : Colors.black,
                                 ),
-                                onPressed: () {
-                                  // Placeholder for refer functionality
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Refer functionality coming soon!')),
-                                  );
-                                },
+                                onPressed: _shareApp,
                               ),
                             ],
                           ),

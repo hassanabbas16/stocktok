@@ -22,7 +22,7 @@ class _PipTickerViewState extends State<PipTickerView> with WidgetsBindingObserv
   final ScrollController _scrollController = ScrollController();
   Timer? _scrollTimer;
 
-  static const double _scrollSpeed = 2.5; // Increased speed
+  static const double _scrollSpeed = 2.25; // Increased speed
   static const Duration _scrollInterval = Duration(milliseconds: 10); // Faster interval
 
   final List<String> _liveSegments = [];
@@ -109,7 +109,7 @@ class _PipTickerViewState extends State<PipTickerView> with WidgetsBindingObserv
     _scrollTimer = Timer.periodic(_scrollInterval, (_) {
       if (!_scrollController.hasClients) return;
 
-      final maxScroll = _scrollController.position.maxScrollExtent;
+      final maxScroll = _scrollController.position.maxScrollExtent + (widget.stocks.length * 100);
       final newPos = _scrollController.offset + _scrollSpeed;
 
       if (newPos >= maxScroll / 2) {

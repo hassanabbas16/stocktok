@@ -147,6 +147,7 @@ class _SearchPageState extends State<SearchPage> {
         final maxFontSize = 22.0;
         final searchFontSize = (width * 0.04).clamp(minFontSize, maxFontSize);
         return Scaffold(
+          resizeToAvoidBottomInset: true,
           appBar: AppBar(
             title: Container(
               height: 40,
@@ -168,11 +169,12 @@ class _SearchPageState extends State<SearchPage> {
                 ),
                 decoration: InputDecoration(
                   prefixIcon: Icon(Icons.search, color: isDark ? Colors.white70 : Colors.grey[600]),
-                  hintText: 'Search symbol...',
+                  hintText: 'Search symbol or company name...',
                   hintStyle: TextStyle(color: isDark ? Colors.white70 : Colors.grey[600]),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                 ),
+                textInputAction: TextInputAction.search,
               ),
             ),
             actions: [
