@@ -105,7 +105,7 @@ class SplashPage extends StatelessWidget {
                         ),
                         SizedBox(height: height * 0.05),
                         Text(
-                          'Stock Stream',
+                          'Stock Stream App',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: (width * 0.06).clamp(20.0, 36.0),
