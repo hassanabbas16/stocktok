@@ -7,6 +7,8 @@ class CustomScrollingTicker extends StatefulWidget {
   final Map<String, bool> displayPrefs;
   final String separator;
   final bool isLandscape;
+  final double animationSpeed;
+  final double fontSizeMultiplier;
 
   const CustomScrollingTicker({
     Key? key,
@@ -14,6 +16,8 @@ class CustomScrollingTicker extends StatefulWidget {
     required this.displayPrefs,
     required this.separator,
     required this.isLandscape,
+    this.animationSpeed = 1.0,
+    this.fontSizeMultiplier = 1.0,
   }) : super(key: key);
 
   @override
@@ -24,10 +28,12 @@ class _CustomScrollingTickerState extends State<CustomScrollingTicker> with Widg
   final ScrollController _scrollController = ScrollController();
   Timer? _scrollTimer;
 
-  static const double _scrollSpeed = 2.5; // Increased speed
+  static const double _baseScrollSpeed = 2.5; // Base speed
   static const Duration _scrollInterval = Duration(milliseconds: 10); // Faster interval
 
   final List<String> _liveSegments = [];
+
+  double get _scrollSpeed => _baseScrollSpeed * widget.animationSpeed;
 
   @override
   void initState() {
@@ -43,8 +49,15 @@ class _CustomScrollingTickerState extends State<CustomScrollingTicker> with Widg
     super.didUpdateWidget(oldWidget);
     if (oldWidget.stocks != widget.stocks ||
         oldWidget.displayPrefs != widget.displayPrefs ||
-        oldWidget.separator != widget.separator) {
+        oldWidget.separator != widget.separator ||
+        oldWidget.animationSpeed != widget.animationSpeed ||
+        oldWidget.fontSizeMultiplier != widget.fontSizeMultiplier) {
       _buildSegments();
+      // Restart scrolling with new speed if animation speed changed
+      if (oldWidget.animationSpeed != widget.animationSpeed) {
+        _scrollTimer?.cancel();
+        _startScrolling();
+      }
     }
   }
 
@@ -71,10 +84,13 @@ class _CustomScrollingTickerState extends State<CustomScrollingTicker> with Widg
         baseSegments.add('Brought to you by Emergitech Solutions');
       }
     }
+    
+    // Create seamless loop by duplicating content
     _liveSegments
       ..clear()
       ..addAll(baseSegments)
-      ..addAll(baseSegments);
+      ..addAll(baseSegments) // Duplicate for seamless scrolling
+      ..addAll(baseSegments); // Triple for better seamless effect
   }
 
   String _buildDisplayText(StockData stock) {
@@ -111,11 +127,13 @@ class _CustomScrollingTickerState extends State<CustomScrollingTicker> with Widg
     _scrollTimer = Timer.periodic(_scrollInterval, (_) {
       if (!_scrollController.hasClients) return;
 
-      final maxScroll = _scrollController.position.maxScrollExtent + (widget.stocks.length * 100);
+      final maxScroll = _scrollController.position.maxScrollExtent;
       final newPos = _scrollController.offset + _scrollSpeed;
 
-      if (newPos >= maxScroll / 2) {
-        _scrollController.jumpTo(newPos - (maxScroll / 2));
+      // When we reach 1/3 of the total content (one complete cycle), reset
+      // This ensures smooth transition since we have triple content
+      if (newPos >= maxScroll / 3) {
+        _scrollController.jumpTo(0);
       } else {
         _scrollController.jumpTo(newPos);
       }
@@ -148,7 +166,7 @@ class _CustomScrollingTickerState extends State<CustomScrollingTicker> with Widg
         final isTablet = width >= 600;
         final minFontSize = isTablet ? 24.0 : 16.0;
         final maxFontSize = isTablet ? 48.0 : 32.0;
-        final fontSize = (width * (isLandscape ? 0.045 : 0.03)).clamp(minFontSize, maxFontSize);
+        final fontSize = ((width * (isLandscape ? 0.045 : 0.03)).clamp(minFontSize, maxFontSize)) * widget.fontSizeMultiplier;
         final minMargin = isTablet ? 12.0 : 16.0;
         final maxMargin = isTablet ? 40.0 : 80.0;
         final horizontalMargin = (width * (isLandscape ? 0.04 : 0.025)).clamp(minMargin, maxMargin); // Reduced gap
