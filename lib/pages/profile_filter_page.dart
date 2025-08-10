@@ -1020,6 +1020,7 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
   // PiP Mode Helper Methods
   Widget _buildPipSpeedChip(String label, double speedValue, double width, bool isTablet) {
     final isSelected = _pipAnimationSpeed == speedValue;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final chipFontSize = (width * 0.035).clamp(12.0, 16.0);
     final minChipWidth = isTablet ? 80.0 : 60.0;
     final chipPadding = isTablet ? EdgeInsets.symmetric(horizontal: 20, vertical: 12) : EdgeInsets.symmetric(horizontal: 16, vertical: 10);
@@ -1032,7 +1033,7 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: chipFontSize,
-            color: isSelected ? Colors.white : null,
+            color: isSelected ? (isDark ? Colors.white : Colors.grey[600]) : null,
           ),
         ),
         selected: isSelected,
@@ -1049,6 +1050,7 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
 
   Widget _buildPipFontSizeChip(String label, double fontSizeValue, double width, bool isTablet) {
     final isSelected = _pipFontSize == fontSizeValue;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final chipFontSize = (width * 0.035).clamp(12.0, 16.0);
     final minChipWidth = isTablet ? 80.0 : 60.0;
     final chipPadding = isTablet ? EdgeInsets.symmetric(horizontal: 20, vertical: 12) : EdgeInsets.symmetric(horizontal: 16, vertical: 10);
@@ -1061,7 +1063,7 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: chipFontSize,
-            color: isSelected ? Colors.white : null,
+            color: isSelected ? (isDark ? Colors.white : Colors.grey[600]) : null,
           ),
         ),
         selected: isSelected,
@@ -1079,6 +1081,7 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
   // Animation Mode Helper Methods
   Widget _buildAnimationSpeedChip(String label, double speedValue, double width, bool isTablet) {
     final isSelected = _animationModeSpeed == speedValue;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final chipFontSize = (width * 0.035).clamp(12.0, 16.0);
     final minChipWidth = isTablet ? 80.0 : 60.0;
     final chipPadding = isTablet ? EdgeInsets.symmetric(horizontal: 20, vertical: 12) : EdgeInsets.symmetric(horizontal: 16, vertical: 10);
@@ -1091,7 +1094,7 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: chipFontSize,
-            color: isSelected ? Colors.white : null,
+            color: isSelected ? (isDark ? Colors.white : Colors.grey[600]) : null,
           ),
         ),
         selected: isSelected,
@@ -1108,6 +1111,7 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
 
   Widget _buildAnimationFontSizeChip(String label, double fontSizeValue, double width, bool isTablet) {
     final isSelected = _animationModeFontSize == fontSizeValue;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final chipFontSize = (width * 0.035).clamp(12.0, 16.0);
     final minChipWidth = isTablet ? 80.0 : 60.0;
     final chipPadding = isTablet ? EdgeInsets.symmetric(horizontal: 20, vertical: 12) : EdgeInsets.symmetric(horizontal: 16, vertical: 10);
@@ -1120,7 +1124,7 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: chipFontSize,
-            color: isSelected ? Colors.white : null,
+            color: isSelected ? (isDark ? Colors.white : Colors.grey[600]) : null,
           ),
         ),
         selected: isSelected,
