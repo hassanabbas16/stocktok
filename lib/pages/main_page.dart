@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -317,6 +318,17 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
   /// Toggle Picture-in-Picture.
   void _toggleFloatingWindow() async {
+    // Check if platform is iOS or macOS - PiP not supported
+    if (Platform.isIOS || Platform.isMacOS) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('PiP Feature Coming Soon for iOS/macOS'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
     if (_watchlistData.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -757,10 +769,15 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                                   _isFloatingWindowActive
                                       ? Icons.close_fullscreen
                                       : Icons.open_in_full,
-                                  color: Colors.grey[600],
+                                  color: (Platform.isIOS || Platform.isMacOS) 
+                                      ? Colors.grey[400] // Dimmed for unsupported platforms
+                                      : Colors.grey[600],
                                 ),
                                 iconSize: iconSize,
                                 onPressed: _toggleFloatingWindow,
+                                tooltip: (Platform.isIOS || Platform.isMacOS) 
+                                    ? 'PiP Feature Coming Soon' 
+                                    : 'Toggle Picture-in-Picture Mode',
                               ),
                               IconButton(
                                 iconSize: iconSize,
