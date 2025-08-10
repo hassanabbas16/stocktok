@@ -1,6 +1,6 @@
 {
-    "name": "stocktok",
-    "short_name": "stocktok",
+    "name": "Stock Stream App",
+    "short_name": "Stock Stream App",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
