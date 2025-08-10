@@ -59,6 +59,14 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
   // Track the actual app dark mode state
   late bool _actualDarkMode;
 
+  // PiP mode settings
+  double _pipAnimationSpeed = 1.0; // 1x, 2x, 4x
+  double _pipFontSize = 1.0; // 0.8x, 1.0x, 1.2x
+  
+  // Animation mode settings
+  double _animationModeSpeed = 1.0; // 1x, 2x, 4x
+  double _animationModeFontSize = 1.0; // 0.8x, 1.0x, 1.2x
+
   @override
   void initState() {
     super.initState();
@@ -109,6 +117,14 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
             _showDailyHighLow   = prefs['showDailyHighLow']   ?? _showDailyHighLow;
             _separator          = prefs['separator']          ?? _separator;
 
+            // PiP mode settings
+            _pipAnimationSpeed     = prefs['pipAnimationSpeed']     ?? _pipAnimationSpeed;
+            _pipFontSize           = prefs['pipFontSize']           ?? _pipFontSize;
+            
+            // Animation mode settings
+            _animationModeSpeed     = prefs['animationModeSpeed']     ?? _animationModeSpeed;
+            _animationModeFontSize  = prefs['animationModeFontSize']  ?? _animationModeFontSize;
+
             // Dark mode
             if (prefs.containsKey('darkMode')) {
               _tempDarkMode = prefs['darkMode'];
@@ -144,6 +160,10 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
           'showOpeningPrice':   _showOpeningPrice,
           'showDailyHighLow':   _showDailyHighLow,
           'separator':          _separator,
+          'pipAnimationSpeed':     _pipAnimationSpeed,
+          'pipFontSize':           _pipFontSize,
+          'animationModeSpeed':    _animationModeSpeed,
+          'animationModeFontSize': _animationModeFontSize,
           'darkMode':           _tempDarkMode,
         }
       }, SetOptions(merge: true));
@@ -164,10 +184,29 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
       } catch (e) {
         String errorMessage = 'Error changing password. Please try again.';
         
-        if (e.toString().contains('requires-recent-login')) {
-          errorMessage = 'Please log out and log back in before changing your password.';
-        } else if (e.toString().contains('weak-password')) {
-          errorMessage = 'Password is too weak. Please use a stronger password.';
+        if (e is FirebaseAuthException) {
+          switch (e.code) {
+            case 'requires-recent-login':
+              errorMessage = 'Please log out and log back in to change your password.';
+              break;
+            case 'weak-password':
+              errorMessage = 'Password is too weak. Please use a stronger password.';
+              break;
+            case 'network-request-failed':
+              errorMessage = 'Network error. Please check your connection and try again.';
+              break;
+            default:
+              errorMessage = 'Error changing password. Please try again.';
+          }
+        } else {
+          // Handle non-Firebase exceptions
+          if (e.toString().contains('network') || e.toString().contains('connection')) {
+            errorMessage = 'Network error. Please check your connection and try again.';
+          } else if (e.toString().contains('timeout')) {
+            errorMessage = 'Request timed out. Please try again.';
+          } else {
+            errorMessage = 'Unexpected error occurred. Please try again.';
+          }
         }
         
         ScaffoldMessenger.of(context).showSnackBar(
@@ -195,6 +234,10 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
         'showOpeningPrice':   _showOpeningPrice,
         'showDailyHighLow':   _showDailyHighLow,
         'separator':          _separator,
+        'pipAnimationSpeed':     _pipAnimationSpeed,
+        'pipFontSize':           _pipFontSize,
+        'animationModeSpeed':    _animationModeSpeed,
+        'animationModeFontSize': _animationModeFontSize,
         'darkMode':           _tempDarkMode,
       });
     }
@@ -279,7 +322,7 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
 
   /// Share app functionality
   void _shareApp() async {
-    final String appName = 'Stock Stream';
+    final String appName = 'Stock Stream App';
     final String appDescription = 'Real-time stock ticker with customizable watchlist & in-app market insights. Stay ahead of the market with our real-time, customizable stock ticker app.';
     
     String shareText = '$appName\n\n$appDescription\n\n';
@@ -508,6 +551,218 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
                                   _buildSeparatorChip(' / '),
                                   _buildSeparatorChip(' • '),
                                 ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // PiP Mode Settings
+                      Container(
+                        width: double.infinity,
+                        margin: EdgeInsets.symmetric(
+                          vertical: height * 0.01,
+                          horizontal: width * 0.02,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.grey[900] : Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: isDark 
+                            ? Border.all(color: Colors.grey[700]!, width: 1)
+                            : Border.all(color: Colors.grey[200]!, width: 1),
+                          boxShadow: [
+                            BoxShadow(
+                              color: isDark ? Colors.black26 : Colors.black12,
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                              spreadRadius: 0,
+                            ),
+                          ],
+                        ),
+                        child: Padding(
+                          padding: EdgeInsets.all(width * 0.04),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'PiP Mode Settings',
+                                style: TextStyle(
+                                  fontSize: (width * 0.045).clamp(16.0, 22.0),
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
+                              ),
+                              SizedBox(height: height * 0.008),
+                              Text(
+                                'Picture-in-Picture mode: Small floating window overlay',
+                                style: TextStyle(
+                                  fontSize: (width * 0.035).clamp(12.0, 16.0),
+                                  color: isDark ? Colors.white70 : Colors.black54,
+                                ),
+                              ),
+                              SizedBox(height: height * 0.015),
+                              Divider(color: isDark ? Colors.grey[700] : Colors.grey[300]),
+                              SizedBox(height: height * 0.015),
+                              
+                              // PiP Animation Speed
+                              Text(
+                                'Animation Speed',
+                                style: TextStyle(
+                                  fontSize: (width * 0.04).clamp(14.0, 18.0),
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
+                              ),
+                              SizedBox(height: height * 0.012),
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final isTablet = width >= 600;
+                                  final spacing = isTablet ? 12.0 : 8.0;
+                                  return Wrap(
+                                    spacing: spacing,
+                                    runSpacing: spacing,
+                                    alignment: WrapAlignment.start,
+                                    children: [
+                                      _buildPipSpeedChip('1x', 1.0, width, isTablet),
+                                      _buildPipSpeedChip('2x', 2.0, width, isTablet),
+                                      _buildPipSpeedChip('4x', 4.0, width, isTablet),
+                                    ],
+                                  );
+                                },
+                              ),
+                              SizedBox(height: height * 0.025),
+                              
+                              // PiP Font Size
+                              Text(
+                                'Font Size',
+                                style: TextStyle(
+                                  fontSize: (width * 0.04).clamp(14.0, 18.0),
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
+                              ),
+                              SizedBox(height: height * 0.012),
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final isTablet = width >= 600;
+                                  final spacing = isTablet ? 12.0 : 8.0;
+                                  return Wrap(
+                                    spacing: spacing,
+                                    runSpacing: spacing,
+                                    alignment: WrapAlignment.start,
+                                    children: [
+                                      _buildPipFontSizeChip('1x', 1.0, width, isTablet),
+                                      _buildPipFontSizeChip('2x', 2.0, width, isTablet),
+                                      _buildPipFontSizeChip('4x', 4.0, width, isTablet),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // Animation Mode Settings
+                      Container(
+                        width: double.infinity,
+                        margin: EdgeInsets.symmetric(
+                          vertical: height * 0.01,
+                          horizontal: width * 0.02,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.grey[900] : Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: isDark 
+                            ? Border.all(color: Colors.grey[700]!, width: 1)
+                            : Border.all(color: Colors.grey[200]!, width: 1),
+                          boxShadow: [
+                            BoxShadow(
+                              color: isDark ? Colors.black26 : Colors.black12,
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                              spreadRadius: 0,
+                            ),
+                          ],
+                        ),
+                        child: Padding(
+                          padding: EdgeInsets.all(width * 0.04),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Animation Mode Settings',
+                                style: TextStyle(
+                                  fontSize: (width * 0.045).clamp(16.0, 22.0),
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
+                              ),
+                              SizedBox(height: height * 0.008),
+                              Text(
+                                'Full-screen scrolling ticker animation mode',
+                                style: TextStyle(
+                                  fontSize: (width * 0.035).clamp(12.0, 16.0),
+                                  color: isDark ? Colors.white70 : Colors.black54,
+                                ),
+                              ),
+                              SizedBox(height: height * 0.015),
+                              Divider(color: isDark ? Colors.grey[700] : Colors.grey[300]),
+                              SizedBox(height: height * 0.015),
+                              
+                              // Animation Mode Speed
+                              Text(
+                                'Animation Speed',
+                                style: TextStyle(
+                                  fontSize: (width * 0.04).clamp(14.0, 18.0),
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
+                              ),
+                              SizedBox(height: height * 0.012),
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final isTablet = width >= 600;
+                                  final spacing = isTablet ? 12.0 : 8.0;
+                                  return Wrap(
+                                    spacing: spacing,
+                                    runSpacing: spacing,
+                                    alignment: WrapAlignment.start,
+                                    children: [
+                                      _buildAnimationSpeedChip('1x', 1.0, width, isTablet),
+                                      _buildAnimationSpeedChip('2x', 2.0, width, isTablet),
+                                      _buildAnimationSpeedChip('4x', 4.0, width, isTablet),
+                                    ],
+                                  );
+                                },
+                              ),
+                              SizedBox(height: height * 0.025),
+                              
+                              // Animation Mode Font Size
+                              Text(
+                                'Font Size',
+                                style: TextStyle(
+                                  fontSize: (width * 0.04).clamp(14.0, 18.0),
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
+                              ),
+                              SizedBox(height: height * 0.012),
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final isTablet = width >= 600;
+                                  final spacing = isTablet ? 12.0 : 8.0;
+                                  return Wrap(
+                                    spacing: spacing,
+                                    runSpacing: spacing,
+                                    alignment: WrapAlignment.start,
+                                    children: [
+                                      _buildAnimationFontSizeChip('1x', 1.0, width, isTablet),
+                                      _buildAnimationFontSizeChip('2x', 2.0, width, isTablet),
+                                      _buildAnimationFontSizeChip('4x', 4.0, width, isTablet),
+                                    ],
+                                  );
+                                },
                               ),
                             ],
                           ),
@@ -759,6 +1014,124 @@ class _ProfileFilterPageState extends State<ProfileFilterPage> {
       onSelected: (_) {
         setState(() => _separator = sepValue);
       },
+    );
+  }
+
+  // PiP Mode Helper Methods
+  Widget _buildPipSpeedChip(String label, double speedValue, double width, bool isTablet) {
+    final isSelected = _pipAnimationSpeed == speedValue;
+    final chipFontSize = (width * 0.035).clamp(12.0, 16.0);
+    final minChipWidth = isTablet ? 80.0 : 60.0;
+    final chipPadding = isTablet ? EdgeInsets.symmetric(horizontal: 20, vertical: 12) : EdgeInsets.symmetric(horizontal: 16, vertical: 10);
+    
+    return Container(
+      constraints: BoxConstraints(minWidth: minChipWidth),
+      child: ChoiceChip(
+        label: Text(
+          label,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: chipFontSize,
+            color: isSelected ? Colors.white : null,
+          ),
+        ),
+        selected: isSelected,
+        onSelected: (_) {
+          setState(() => _pipAnimationSpeed = speedValue);
+        },
+        padding: chipPadding,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        elevation: isSelected ? 4.0 : 1.0,
+        shadowColor: Colors.black26,
+      ),
+    );
+  }
+
+  Widget _buildPipFontSizeChip(String label, double fontSizeValue, double width, bool isTablet) {
+    final isSelected = _pipFontSize == fontSizeValue;
+    final chipFontSize = (width * 0.035).clamp(12.0, 16.0);
+    final minChipWidth = isTablet ? 80.0 : 60.0;
+    final chipPadding = isTablet ? EdgeInsets.symmetric(horizontal: 20, vertical: 12) : EdgeInsets.symmetric(horizontal: 16, vertical: 10);
+    
+    return Container(
+      constraints: BoxConstraints(minWidth: minChipWidth),
+      child: ChoiceChip(
+        label: Text(
+          label,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: chipFontSize,
+            color: isSelected ? Colors.white : null,
+          ),
+        ),
+        selected: isSelected,
+        onSelected: (_) {
+          setState(() => _pipFontSize = fontSizeValue);
+        },
+        padding: chipPadding,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        elevation: isSelected ? 4.0 : 1.0,
+        shadowColor: Colors.black26,
+      ),
+    );
+  }
+
+  // Animation Mode Helper Methods
+  Widget _buildAnimationSpeedChip(String label, double speedValue, double width, bool isTablet) {
+    final isSelected = _animationModeSpeed == speedValue;
+    final chipFontSize = (width * 0.035).clamp(12.0, 16.0);
+    final minChipWidth = isTablet ? 80.0 : 60.0;
+    final chipPadding = isTablet ? EdgeInsets.symmetric(horizontal: 20, vertical: 12) : EdgeInsets.symmetric(horizontal: 16, vertical: 10);
+    
+    return Container(
+      constraints: BoxConstraints(minWidth: minChipWidth),
+      child: ChoiceChip(
+        label: Text(
+          label,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: chipFontSize,
+            color: isSelected ? Colors.white : null,
+          ),
+        ),
+        selected: isSelected,
+        onSelected: (_) {
+          setState(() => _animationModeSpeed = speedValue);
+        },
+        padding: chipPadding,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        elevation: isSelected ? 4.0 : 1.0,
+        shadowColor: Colors.black26,
+      ),
+    );
+  }
+
+  Widget _buildAnimationFontSizeChip(String label, double fontSizeValue, double width, bool isTablet) {
+    final isSelected = _animationModeFontSize == fontSizeValue;
+    final chipFontSize = (width * 0.035).clamp(12.0, 16.0);
+    final minChipWidth = isTablet ? 80.0 : 60.0;
+    final chipPadding = isTablet ? EdgeInsets.symmetric(horizontal: 20, vertical: 12) : EdgeInsets.symmetric(horizontal: 16, vertical: 10);
+    
+    return Container(
+      constraints: BoxConstraints(minWidth: minChipWidth),
+      child: ChoiceChip(
+        label: Text(
+          label,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: chipFontSize,
+            color: isSelected ? Colors.white : null,
+          ),
+        ),
+        selected: isSelected,
+        onSelected: (_) {
+          setState(() => _animationModeFontSize = fontSizeValue);
+        },
+        padding: chipPadding,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        elevation: isSelected ? 4.0 : 1.0,
+        shadowColor: Colors.black26,
+      ),
     );
   }
 }
