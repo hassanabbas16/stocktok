@@ -25,8 +25,8 @@ class FloatingWindowService {
     await flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>()?.createNotificationChannel(
       const AndroidNotificationChannel(
-        'stocktok_service',
-        'StockTok Ticker',
+        'stock_stream_service',
+        'Stock Stream App Ticker',
         description: 'Shows stock ticker information',
         importance: Importance.low,
       ),
@@ -37,8 +37,8 @@ class FloatingWindowService {
         onStart: onStart,
         autoStart: false,
         isForegroundMode: true,
-        notificationChannelId: 'stocktok_service',
-        initialNotificationTitle: 'StockTok Ticker',
+        notificationChannelId: 'stock_stream_service',
+        initialNotificationTitle: 'Stock Stream App Ticker',
         initialNotificationContent: 'Loading...',
         foregroundServiceNotificationId: 888,
       ),
@@ -64,7 +64,7 @@ class FloatingWindowService {
       service.on('updateNotification').listen((event) {
         if (event != null) {
           service.setForegroundNotificationInfo(
-            title: "StockTok Ticker",
+            title: "Stock Stream App Ticker",
             content: event['displayText'] ?? '',
           );
         }
@@ -74,7 +74,7 @@ class FloatingWindowService {
         if (event != null) {
           stockData = event;
           service.setForegroundNotificationInfo(
-            title: "StockTok Ticker",
+            title: "Stock Stream App Ticker",
             content: stockData['displayText'] ?? '',
           );
         }
