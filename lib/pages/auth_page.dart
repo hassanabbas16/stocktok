@@ -16,7 +16,7 @@ class _AuthPageState extends State<AuthPage> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
-  bool isLogin = true;
+  bool isLogin = false;
   bool isLoading = false;
 
   // "Tok" text & main button color
@@ -43,14 +43,38 @@ class _AuthPageState extends State<AuthPage> {
     } catch (e) {
       String errorMessage = 'Login failed. Please try again.';
       
-      if (e.toString().contains('user-not-found')) {
-        errorMessage = 'Account not found. Please sign up first.';
-      } else if (e.toString().contains('wrong-password')) {
-        errorMessage = 'Incorrect password. Please try again.';
-      } else if (e.toString().contains('invalid-email')) {
-        errorMessage = 'Invalid email format.';
-      } else if (e.toString().contains('too-many-requests')) {
-        errorMessage = 'Too many failed attempts. Please try again later.';
+      if (e is FirebaseAuthException) {
+        switch (e.code) {
+          case 'user-not-found':
+            errorMessage = 'Please sign up before logging in.';
+            break;
+          case 'wrong-password':
+            errorMessage = 'Incorrect password. Please try again.';
+            break;
+          case 'invalid-email':
+            errorMessage = 'Invalid email format.';
+            break;
+          case 'too-many-requests':
+            errorMessage = 'Too many failed attempts. Please try again later.';
+            break;
+          case 'user-disabled':
+            errorMessage = 'This account has been disabled.';
+            break;
+          case 'network-request-failed':
+            errorMessage = 'Network error. Please check your connection and try again.';
+            break;
+          default:
+            errorMessage = 'Login failed. Please try again.';
+        }
+      } else {
+        // Handle non-Firebase exceptions
+        if (e.toString().contains('network') || e.toString().contains('connection')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        } else if (e.toString().contains('timeout')) {
+          errorMessage = 'Request timed out. Please try again.';
+        } else {
+          errorMessage = 'Unexpected error occurred. Please try again.';
+        }
       }
       
       ScaffoldMessenger.of(context).showSnackBar(
@@ -79,12 +103,32 @@ class _AuthPageState extends State<AuthPage> {
     } catch (e) {
       String errorMessage = 'Signup failed. Please try again.';
       
-      if (e.toString().contains('email-already-in-use')) {
-        errorMessage = 'Email already registered. Please login instead.';
-      } else if (e.toString().contains('weak-password')) {
-        errorMessage = 'Password is too weak. Please use a stronger password.';
-      } else if (e.toString().contains('invalid-email')) {
-        errorMessage = 'Invalid email format.';
+      if (e is FirebaseAuthException) {
+        switch (e.code) {
+          case 'email-already-in-use':
+            errorMessage = 'Email already registered. Please login instead.';
+            break;
+          case 'weak-password':
+            errorMessage = 'Password is too weak. Please use a stronger password.';
+            break;
+          case 'invalid-email':
+            errorMessage = 'Invalid email format.';
+            break;
+          case 'network-request-failed':
+            errorMessage = 'Network error. Please check your connection and try again.';
+            break;
+          default:
+            errorMessage = 'Signup failed. Please try again.';
+        }
+      } else {
+        // Handle non-Firebase exceptions
+        if (e.toString().contains('network') || e.toString().contains('connection')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        } else if (e.toString().contains('timeout')) {
+          errorMessage = 'Request timed out. Please try again.';
+        } else {
+          errorMessage = 'Unexpected error occurred. Please try again.';
+        }
       }
       
       ScaffoldMessenger.of(context).showSnackBar(
@@ -155,8 +199,38 @@ class _AuthPageState extends State<AuthPage> {
                             const SnackBar(content: Text('Password reset email sent!')),
                           );
                         } catch (e) {
+                          String errorMessage = 'Failed to send reset email. Please try again.';
+                          
+                          if (e is FirebaseAuthException) {
+                            switch (e.code) {
+                              case 'user-not-found':
+                                errorMessage = 'Please sign up before logging in.';
+                                break;
+                              case 'invalid-email':
+                                errorMessage = 'Invalid email format.';
+                                break;
+                              case 'too-many-requests':
+                                errorMessage = 'Too many requests. Please try again later.';
+                                break;
+                              case 'network-request-failed':
+                                errorMessage = 'Network error. Please check your connection and try again.';
+                                break;
+                              default:
+                                errorMessage = 'Failed to send reset email. Please try again.';
+                            }
+                          } else {
+                            // Handle non-Firebase exceptions
+                            if (e.toString().contains('network') || e.toString().contains('connection')) {
+                              errorMessage = 'Network error. Please check your connection and try again.';
+                            } else if (e.toString().contains('timeout')) {
+                              errorMessage = 'Request timed out. Please try again.';
+                            } else {
+                              errorMessage = 'Unexpected error occurred. Please try again.';
+                            }
+                          }
+                          
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error: $e')),
+                            SnackBar(content: Text(errorMessage)),
                           );
                         }
                       },
