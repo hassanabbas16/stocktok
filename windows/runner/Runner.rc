@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "stocktok" "\0"
+            VALUE "FileDescription", "Stock Stream App" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "stocktok" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2025 com.example. All rights reserved." "\0"
             VALUE "OriginalFilename", "stocktok.exe" "\0"
-            VALUE "ProductName", "stocktok" "\0"
+            VALUE "ProductName", "Stock Stream App" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
