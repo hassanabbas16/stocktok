@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../services/pip_service.dart';
-import '../services/floating_window_service.dart';
 import '../services/data_repository.dart';
 import '../services/twelve_data_service.dart';
 import '../services/polygon_service.dart';
@@ -47,6 +46,14 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
   // Dark mode flag from Firestore.
   bool _darkMode = false;
+
+  // PiP mode settings
+  double _pipAnimationSpeed = 1.0; // 1x, 2x, 4x
+  double _pipFontSize = 1.0; // 0.8x, 1.0x, 1.2x
+  
+  // Animation mode settings
+  double _animationModeSpeed = 1.0; // 1x, 2x, 4x
+  double _animationModeFontSize = 1.0; // 0.8x, 1.0x, 1.2x
 
   List<String> _watchlistSymbols = [];
   List<StockData> _watchlistData = [];
@@ -249,6 +256,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           _tickerShowOpeningPrice   = prefs['showOpeningPrice'] ?? _tickerShowOpeningPrice;
           _tickerShowDailyHighLow   = prefs['showDailyHighLow'] ?? _tickerShowDailyHighLow;
           _separator                = prefs['separator'] ?? _separator;
+          _pipAnimationSpeed        = prefs['pipAnimationSpeed'] ?? _pipAnimationSpeed;
+          _pipFontSize              = prefs['pipFontSize'] ?? _pipFontSize;
+          _animationModeSpeed       = prefs['animationModeSpeed'] ?? _animationModeSpeed;
+          _animationModeFontSize    = prefs['animationModeFontSize'] ?? _animationModeFontSize;
           _darkMode                 = prefs['darkMode'] ?? false;
         });
       }
@@ -369,6 +380,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         _tickerShowOpeningPrice   = result['showOpeningPrice'] ?? _tickerShowOpeningPrice;
         _tickerShowDailyHighLow   = result['showDailyHighLow'] ?? _tickerShowDailyHighLow;
         _separator                = result['separator'] ?? _separator;
+        _pipAnimationSpeed        = result['pipAnimationSpeed'] ?? _pipAnimationSpeed;
+        _pipFontSize              = result['pipFontSize'] ?? _pipFontSize;
+        _animationModeSpeed       = result['animationModeSpeed'] ?? _animationModeSpeed;
+        _animationModeFontSize    = result['animationModeFontSize'] ?? _animationModeFontSize;
         // Important: ensure theme changes too
         if (result.containsKey('darkMode')) {
           _darkMode = result['darkMode'];
@@ -468,6 +483,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                       'showDailyHighLow': _tickerShowDailyHighLow,
                     },
                     separator: _separator,
+                    animationSpeed: _pipAnimationSpeed,
+                    fontSizeMultiplier: _pipFontSize,
                   ),
                   Positioned(
                     top: MediaQuery.of(context).padding.top + (isSmall ? 6 : 16),
@@ -518,7 +535,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         if (_isAnimationModeActive) {
           final orientation = MediaQuery.of(context).orientation;
           final isLandscape = orientation == Orientation.landscape;
-          final isSmall = width < 400;
           final infoColor = isDark ? Colors.white : Colors.black;
           return Theme(
             data: _darkMode ? ThemeData.dark() : ThemeData.light(),
@@ -557,6 +573,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                       },
                       separator: _separator,
                       isLandscape: isLandscape,
+                      animationSpeed: _animationModeSpeed,
+                      fontSizeMultiplier: _animationModeFontSize,
                     ),
                   ),
 
