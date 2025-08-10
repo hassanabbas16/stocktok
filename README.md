@@ -1,4 +1,4 @@
-# stocktok
+# Stock Stream App
 
 A new Flutter project.
 
