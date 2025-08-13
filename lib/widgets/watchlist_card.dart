@@ -77,7 +77,7 @@ class _WatchlistCardState extends State<WatchlistCard> {
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.bold,
-                              fontSize: nameFontSize,
+                              fontSize: symbolFontSize,
                             ),
                           ),
                         );
@@ -88,7 +88,7 @@ class _WatchlistCardState extends State<WatchlistCard> {
                       widget.stock.symbol,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         fontWeight: FontWeight.bold,
-                        fontSize: symbolFontSize,
+                        fontSize: nameFontSize,
                       ),
                     ),
                 ],
