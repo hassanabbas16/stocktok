@@ -97,8 +97,8 @@ class _CustomScrollingTickerState extends State<CustomScrollingTicker> with Widg
     final dp = widget.displayPrefs;
     List<String> parts = [];
 
-    if (dp['showSymbol'] ?? true) parts.add(stock.symbol);
     if (dp['showName'] ?? false) parts.add(stock.name);
+    if (dp['showSymbol'] ?? true) parts.add(stock.symbol);
     if (dp['showPrice'] ?? true) {
       parts.add('\$${stock.currentPrice.toStringAsFixed(2)}');
     }
