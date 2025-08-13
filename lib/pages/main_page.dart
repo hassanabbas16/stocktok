@@ -63,6 +63,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   String get _searchQuery => _searchController.text.trim().toLowerCase();
 
   Timer? _updateTimer;
+  Timer? _searchDebounceTimer;
 
   @override
   void initState() {
@@ -302,6 +303,18 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     }).toList();
   }
 
+  /// Debounced search handler for main page search
+  void _onMainPageSearchChanged(String query) {
+    _searchDebounceTimer?.cancel();
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 200), () {
+      if (mounted) {
+        setState(() {
+          // Trigger rebuild with new search query
+        });
+      }
+    });
+  }
+
   /// Reorder watchlist items.
   void _onReorder(int oldIndex, int newIndex) async {
     if (newIndex > oldIndex) newIndex -= 1;
@@ -407,15 +420,18 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   @override
   void dispose() {
     _updateTimer?.cancel();
+    _searchDebounceTimer?.cancel();
     _watchlistSubscription?.cancel();
     PiPService.setIsMainPage(false);
     WidgetsBinding.instance.removeObserver(this);
+    _searchController.dispose();
     super.dispose();
   }
 
   /// Clean up method to be called before navigation
   void _cleanup() {
     _updateTimer?.cancel();
+    _searchDebounceTimer?.cancel();
     _watchlistSubscription?.cancel();
     PiPService.setIsMainPage(false);
   }
@@ -465,10 +481,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         final minButtonHeight = isTablet ? 56.0 : 48.0;
         final maxButtonHeight = isTablet ? 80.0 : 70.0;
         final buttonHeight = (height * 0.07).clamp(minButtonHeight, maxButtonHeight);
-        final minFontSize = isTablet ? 16.0 : 14.0;
-        final maxFontSize = isTablet ? 24.0 : 22.0;
-        final searchFontSize = (width * 0.04).clamp(minFontSize, maxFontSize);
-        final iconSize = (width * 0.06).clamp(isTablet ? 28.0 : 24.0, isTablet ? 48.0 : 40.0);
+        final searchBarHeight = buttonHeight * 0.8;
+        final searchFontSize = (searchBarHeight * 0.35).clamp(12.0, 18.0);
+        final iconSize = (width * 0.05).clamp(isTablet ? 26.0 : 22.0, isTablet ? 32.0 : 28.0);
         final logoHeight = (height * 0.06).clamp(32.0, 60.0);
         final bottomBarHeight = (height * 0.08).clamp(isTablet ? 64.0 : 56.0, isTablet ? 96.0 : 80.0);
 
@@ -733,7 +748,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                                   ),
                                   child: TextField(
                                     controller: _searchController,
-                                    onChanged: (_) => setState(() {}),
+                                    onChanged: _onMainPageSearchChanged,
                                     decoration: InputDecoration(
                                       hintText: 'Search stocks...',
                                       hintStyle: TextStyle(
@@ -743,7 +758,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                                       border: InputBorder.none,
                                       filled: true,
                                       fillColor: Colors.transparent,
-                                      contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                                      contentPadding: EdgeInsets.symmetric(
+                                        vertical: (searchBarHeight - searchFontSize) / 2 - 4,
+                                        horizontal: 4,
+                                      ),
                                     ),
                                     style: TextStyle(
                                       color: _darkMode ? Colors.white : Colors.black,
