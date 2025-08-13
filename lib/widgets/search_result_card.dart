@@ -50,7 +50,9 @@ class _SearchResultCardState extends State<SearchResultCard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    stock.symbol,
+                    widget.stock.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: symbolFontSize,
@@ -59,9 +61,7 @@ class _SearchResultCardState extends State<SearchResultCard> {
                   ),
                   SizedBox(height: width * 0.01),
                   Text(
-                    widget.stock.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    stock.symbol,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       fontSize: nameFontSize,
