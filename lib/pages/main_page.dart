@@ -35,15 +35,15 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   bool _isAnimationModeActive = false;
   bool _isLoading = false;
   // Ticker filter preferences.
-  bool _tickerShowSymbol         = true;
-  bool _tickerShowName           = true;
-  bool _tickerShowPrice          = true;
-  bool _tickerShowPercentChange  = true;
+  bool _tickerShowSymbol = true;
+  bool _tickerShowName = true;
+  bool _tickerShowPrice = true;
+  bool _tickerShowPercentChange = true;
   bool _tickerShowAbsoluteChange = false;
-  bool _tickerShowVolume         = false;
-  bool _tickerShowOpeningPrice   = false;
-  bool _tickerShowDailyHighLow   = false;
-  String _separator              = ' .... ';
+  bool _tickerShowVolume = false;
+  bool _tickerShowOpeningPrice = false;
+  bool _tickerShowDailyHighLow = false;
+  String _separator = ' .... ';
 
   // Dark mode flag from Firestore.
   bool _darkMode = false;
@@ -51,7 +51,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   // PiP mode settings
   double _pipAnimationSpeed = 1.0; // 1x, 2x, 4x
   double _pipFontSize = 1.0; // 0.8x, 1.0x, 1.2x
-  
+
   // Animation mode settings
   double _animationModeSpeed = 1.0; // 1x, 2x, 4x
   double _animationModeFontSize = 1.0; // 0.8x, 1.0x, 1.2x
@@ -69,8 +69,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-
-
 
     // Mark that we're on the main page (for PiP-service usage).
     Future.delayed(const Duration(milliseconds: 100), () {
@@ -104,7 +102,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           final data = docSnap.data();
           if (data != null) {
             final List<dynamic>? symbols =
-            data['selectedTickerSymbols'] as List<dynamic>?;
+                data['selectedTickerSymbols'] as List<dynamic>?;
             if (symbols != null) {
               setState(() {
                 _watchlistSymbols = symbols.map((e) => e.toString()).toList();
@@ -139,10 +137,33 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         day2: day2,
       );
       dataRepo.addPolygonData(combined);
-      print(
-          '--- MAIN PAGE: after Polygon fetch, dataRepo has ${dataRepo.polygonCache.length} symbols.');
     } catch (e) {
-      print('--- Error in _initialLoad fetching from Polygon: $e');
+      // Show a snackbar to inform the user of the error
+      if (mounted) {
+        String errorMsg =
+            'Failed to fetch market data. Please try again later.';
+        if (e is SocketException) {
+          errorMsg = 'No internet connection. Please check your network.';
+        } else if (e is TimeoutException) {
+          errorMsg = 'Request timed out. Please try again.';
+        } else if (e is PlatformException) {
+          errorMsg = 'Platform error: ${e.message ?? 'Unknown error.'}';
+        } else if (e is FirebaseException) {
+          errorMsg = 'Database error: ${e.message ?? 'Unknown error.'}';
+        } else if (e is FormatException) {
+          errorMsg = 'Data format error. Please contact support.';
+        } else if (e is HttpException) {
+          errorMsg = 'Server error: ${e.message}';
+        } else if (e is Exception) {
+          errorMsg = e.toString();
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMsg),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
 
     // (2) Load user filter preferences, including darkMode.
@@ -249,20 +270,26 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       final prefs = data['filterPreferences'];
       if (prefs is Map<String, dynamic>) {
         setState(() {
-          _tickerShowSymbol         = prefs['showSymbol'] ?? _tickerShowSymbol;
-          _tickerShowName           = prefs['showName'] ?? _tickerShowName;
-          _tickerShowPrice          = prefs['showPrice'] ?? _tickerShowPrice;
-          _tickerShowPercentChange  = prefs['showPercentChange'] ?? _tickerShowPercentChange;
-          _tickerShowAbsoluteChange = prefs['showAbsoluteChange'] ?? _tickerShowAbsoluteChange;
-          _tickerShowVolume         = prefs['showVolume'] ?? _tickerShowVolume;
-          _tickerShowOpeningPrice   = prefs['showOpeningPrice'] ?? _tickerShowOpeningPrice;
-          _tickerShowDailyHighLow   = prefs['showDailyHighLow'] ?? _tickerShowDailyHighLow;
-          _separator                = prefs['separator'] ?? _separator;
-          _pipAnimationSpeed        = prefs['pipAnimationSpeed'] ?? _pipAnimationSpeed;
-          _pipFontSize              = prefs['pipFontSize'] ?? _pipFontSize;
-          _animationModeSpeed       = prefs['animationModeSpeed'] ?? _animationModeSpeed;
-          _animationModeFontSize    = prefs['animationModeFontSize'] ?? _animationModeFontSize;
-          _darkMode                 = prefs['darkMode'] ?? false;
+          _tickerShowSymbol = prefs['showSymbol'] ?? _tickerShowSymbol;
+          _tickerShowName = prefs['showName'] ?? _tickerShowName;
+          _tickerShowPrice = prefs['showPrice'] ?? _tickerShowPrice;
+          _tickerShowPercentChange =
+              prefs['showPercentChange'] ?? _tickerShowPercentChange;
+          _tickerShowAbsoluteChange =
+              prefs['showAbsoluteChange'] ?? _tickerShowAbsoluteChange;
+          _tickerShowVolume = prefs['showVolume'] ?? _tickerShowVolume;
+          _tickerShowOpeningPrice =
+              prefs['showOpeningPrice'] ?? _tickerShowOpeningPrice;
+          _tickerShowDailyHighLow =
+              prefs['showDailyHighLow'] ?? _tickerShowDailyHighLow;
+          _separator = prefs['separator'] ?? _separator;
+          _pipAnimationSpeed = prefs['pipAnimationSpeed'] ?? _pipAnimationSpeed;
+          _pipFontSize = prefs['pipFontSize'] ?? _pipFontSize;
+          _animationModeSpeed =
+              prefs['animationModeSpeed'] ?? _animationModeSpeed;
+          _animationModeFontSize =
+              prefs['animationModeFontSize'] ?? _animationModeFontSize;
+          _darkMode = prefs['darkMode'] ?? false;
         });
       }
     } catch (_) {}
@@ -280,7 +307,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       final data = docSnap.data();
       if (data == null) return;
       final List<dynamic>? symbols =
-      data['selectedTickerSymbols'] as List<dynamic>?;
+          data['selectedTickerSymbols'] as List<dynamic>?;
       if (symbols != null) {
         _watchlistSymbols = symbols.map((e) => e.toString()).toList();
       }
@@ -396,19 +423,25 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     // Update ticker preferences and darkMode if returned.
     if (result is Map<String, dynamic>) {
       setState(() {
-        _tickerShowSymbol         = result['showSymbol'] ?? _tickerShowSymbol;
-        _tickerShowName           = result['showName'] ?? _tickerShowName;
-        _tickerShowPrice          = result['showPrice'] ?? _tickerShowPrice;
-        _tickerShowPercentChange  = result['showPercentChange'] ?? _tickerShowPercentChange;
-        _tickerShowAbsoluteChange = result['showAbsoluteChange'] ?? _tickerShowAbsoluteChange;
-        _tickerShowVolume         = result['showVolume'] ?? _tickerShowVolume;
-        _tickerShowOpeningPrice   = result['showOpeningPrice'] ?? _tickerShowOpeningPrice;
-        _tickerShowDailyHighLow   = result['showDailyHighLow'] ?? _tickerShowDailyHighLow;
-        _separator                = result['separator'] ?? _separator;
-        _pipAnimationSpeed        = result['pipAnimationSpeed'] ?? _pipAnimationSpeed;
-        _pipFontSize              = result['pipFontSize'] ?? _pipFontSize;
-        _animationModeSpeed       = result['animationModeSpeed'] ?? _animationModeSpeed;
-        _animationModeFontSize    = result['animationModeFontSize'] ?? _animationModeFontSize;
+        _tickerShowSymbol = result['showSymbol'] ?? _tickerShowSymbol;
+        _tickerShowName = result['showName'] ?? _tickerShowName;
+        _tickerShowPrice = result['showPrice'] ?? _tickerShowPrice;
+        _tickerShowPercentChange =
+            result['showPercentChange'] ?? _tickerShowPercentChange;
+        _tickerShowAbsoluteChange =
+            result['showAbsoluteChange'] ?? _tickerShowAbsoluteChange;
+        _tickerShowVolume = result['showVolume'] ?? _tickerShowVolume;
+        _tickerShowOpeningPrice =
+            result['showOpeningPrice'] ?? _tickerShowOpeningPrice;
+        _tickerShowDailyHighLow =
+            result['showDailyHighLow'] ?? _tickerShowDailyHighLow;
+        _separator = result['separator'] ?? _separator;
+        _pipAnimationSpeed = result['pipAnimationSpeed'] ?? _pipAnimationSpeed;
+        _pipFontSize = result['pipFontSize'] ?? _pipFontSize;
+        _animationModeSpeed =
+            result['animationModeSpeed'] ?? _animationModeSpeed;
+        _animationModeFontSize =
+            result['animationModeFontSize'] ?? _animationModeFontSize;
         // Important: ensure theme changes too
         if (result.containsKey('darkMode')) {
           _darkMode = result['darkMode'];
@@ -476,16 +509,20 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         final height = constraints.maxHeight;
         final minHorizontalPadding = 8.0;
         final maxHorizontalPadding = 32.0;
-        final horizontalPadding = (width * 0.03).clamp(minHorizontalPadding, maxHorizontalPadding);
+        final horizontalPadding =
+            (width * 0.03).clamp(minHorizontalPadding, maxHorizontalPadding);
         final isTablet = width >= 600;
         final minButtonHeight = isTablet ? 56.0 : 48.0;
         final maxButtonHeight = isTablet ? 80.0 : 70.0;
-        final buttonHeight = (height * 0.07).clamp(minButtonHeight, maxButtonHeight);
+        final buttonHeight =
+            (height * 0.07).clamp(minButtonHeight, maxButtonHeight);
         final searchBarHeight = buttonHeight * 0.8;
         final searchFontSize = (searchBarHeight * 0.35).clamp(12.0, 18.0);
-        final iconSize = (width * 0.05).clamp(isTablet ? 26.0 : 22.0, isTablet ? 32.0 : 28.0);
+        final iconSize = (width * 0.05)
+            .clamp(isTablet ? 26.0 : 22.0, isTablet ? 32.0 : 28.0);
         final logoHeight = (height * 0.06).clamp(32.0, 60.0);
-        final bottomBarHeight = (height * 0.08).clamp(isTablet ? 64.0 : 56.0, isTablet ? 96.0 : 80.0);
+        final bottomBarHeight = (height * 0.08)
+            .clamp(isTablet ? 64.0 : 56.0, isTablet ? 96.0 : 80.0);
 
         // If PiP mode is active, display only the PipTickerView with a close button overlay.
         if (_isFloatingWindowActive) {
@@ -514,16 +551,21 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                     fontSizeMultiplier: _pipFontSize,
                   ),
                   Positioned(
-                    top: MediaQuery.of(context).padding.top + (isSmall ? 6 : 16),
+                    top:
+                        MediaQuery.of(context).padding.top + (isSmall ? 6 : 16),
                     left: 0,
                     right: 0,
                     child: Center(
                       child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: isSmall ? 6 : 12, vertical: isSmall ? 2 : 6),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: isSmall ? 6 : 12,
+                            vertical: isSmall ? 2 : 6),
                         decoration: BoxDecoration(
                           color: isDark
-                              ? Color.alphaBlend(const Color(0x99000000), Colors.black)
-                              : Color.alphaBlend(const Color(0x1F000000), Colors.white),
+                              ? Color.alphaBlend(
+                                  const Color(0x99000000), Colors.black)
+                              : Color.alphaBlend(
+                                  const Color(0x1F000000), Colors.white),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Text(
@@ -538,13 +580,15 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                     ),
                   ),
                   Positioned(
-                    top: MediaQuery.of(context).padding.top + (isSmall ? 2 : 12),
+                    top:
+                        MediaQuery.of(context).padding.top + (isSmall ? 2 : 12),
                     right: isSmall ? 4 : 16,
                     child: SafeArea(
                       child: Material(
                         color: Colors.transparent,
                         child: IconButton(
-                          icon: Icon(Icons.close, size: isSmall ? 22 : 32, color: infoColor),
+                          icon: Icon(Icons.close,
+                              size: isSmall ? 22 : 32, color: infoColor),
                           tooltip: 'Exit PiP',
                           onPressed: _toggleFloatingWindow,
                           splashRadius: isSmall ? 18 : 24,
@@ -572,7 +616,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                 title: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Image.asset('assets/icons/auth_logo.png', height: logoHeight),
+                    Image.asset('assets/icons/auth_logo.png',
+                        height: logoHeight),
                   ],
                 ),
                 actions: [
@@ -604,7 +649,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                       fontSizeMultiplier: _animationModeFontSize,
                     ),
                   ),
-
                 ],
               ),
             ),
@@ -639,7 +683,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                         title: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Image.asset('assets/icons/auth_logo.png', height: logoHeight),
+                            Image.asset('assets/icons/auth_logo.png',
+                                height: logoHeight),
                           ],
                         ),
                       ),
@@ -653,64 +698,82 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                                       width: double.infinity,
                                       height: buttonHeight,
                                       child: ElevatedButton(
-                                        onPressed: () => _openSearchPage(forceSelection: false),
+                                        onPressed: () => _openSearchPage(
+                                            forceSelection: false),
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF2E9712),
+                                          backgroundColor:
+                                              const Color(0xFF2E9712),
                                           foregroundColor: Colors.white,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(16)),
                                         ),
-                                        child: const Text('Add Symbols to Watchlist'),
+                                        child: const Text(
+                                            'Add Symbols to Watchlist'),
                                       ),
                                     ),
                                   )
                                 : RefreshIndicator(
                                     onRefresh: _refreshWatchlist,
                                     child: ReorderableListView.builder(
-                                      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                                      padding: EdgeInsets.symmetric(
+                                          horizontal: horizontalPadding),
                                       itemCount: filteredWatchlist.length,
                                       onReorder: _onReorder,
                                       itemBuilder: (context, index) {
                                         final stock = filteredWatchlist[index];
                                         return Column(
-                                          key: ValueKey('reorder_${stock.symbol}'),
+                                          key: ValueKey(
+                                              'reorder_${stock.symbol}'),
                                           children: [
                                             Dismissible(
-                                              key: ValueKey('dismiss_${stock.symbol}'),
+                                              key: ValueKey(
+                                                  'dismiss_${stock.symbol}'),
                                               background: Container(
                                                 color: Colors.red,
-                                                alignment: Alignment.centerRight,
-                                                padding: const EdgeInsets.only(right: 16),
+                                                alignment:
+                                                    Alignment.centerRight,
+                                                padding: const EdgeInsets.only(
+                                                    right: 16),
                                                 child: const Icon(Icons.delete,
                                                     color: Colors.white),
                                               ),
-                                              direction: DismissDirection.endToStart,
+                                              direction:
+                                                  DismissDirection.endToStart,
                                               onDismissed: (direction) async {
                                                 setState(() {
-                                                  _watchlistSymbols.remove(stock.symbol);
+                                                  _watchlistSymbols
+                                                      .remove(stock.symbol);
                                                   _watchlistData.remove(stock);
                                                 });
                                                 await _saveUserWatchlist();
                                                 await _refreshWatchlist();
-                                                print('Dismissed item: ${stock.symbol}');
                                               },
                                               child: WatchlistCard(
-                                                key: ValueKey('watchlistCard-${stock.symbol}'),
+                                                key: ValueKey(
+                                                    'watchlistCard-${stock.symbol}'),
                                                 stock: stock,
                                                 showSymbol: _tickerShowSymbol,
                                                 showName: _tickerShowName,
                                                 showPrice: _tickerShowPrice,
-                                                showPercentChange: _tickerShowPercentChange,
-                                                showAbsoluteChange: _tickerShowAbsoluteChange,
+                                                showPercentChange:
+                                                    _tickerShowPercentChange,
+                                                showAbsoluteChange:
+                                                    _tickerShowAbsoluteChange,
                                                 showVolume: _tickerShowVolume,
-                                                showOpeningPrice: _tickerShowOpeningPrice,
-                                                showDailyHighLow: _tickerShowDailyHighLow,
+                                                showOpeningPrice:
+                                                    _tickerShowOpeningPrice,
+                                                showDailyHighLow:
+                                                    _tickerShowDailyHighLow,
                                                 isChecked: false,
                                                 onCheckboxChanged: () {},
                                                 tight: true,
                                               ),
                                             ),
                                             Container(
-                                              margin: const EdgeInsets.symmetric(horizontal: 8),
+                                              margin:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 8),
                                               height: 1,
                                               color: _darkMode
                                                   ? Colors.grey.shade600
@@ -727,17 +790,24 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                         elevation: 8,
                         child: Container(
                           height: bottomBarHeight,
-                          color: _darkMode ? Colors.black : Theme.of(context).cardColor,
-                          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                          color: _darkMode
+                              ? Colors.black
+                              : Theme.of(context).cardColor,
+                          padding: EdgeInsets.symmetric(
+                              horizontal: horizontalPadding),
                           child: Row(
                             children: [
                               Expanded(
                                 child: Container(
                                   height: buttonHeight * 0.8,
-                                  margin: const EdgeInsets.symmetric(vertical: 8),
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  margin:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12),
                                   decoration: BoxDecoration(
-                                    color: _darkMode ? Colors.grey[800] : Colors.grey[100],
+                                    color: _darkMode
+                                        ? Colors.grey[800]
+                                        : Colors.grey[100],
                                     borderRadius: BorderRadius.circular(8),
                                     border: Border.all(
                                       color: _darkMode
@@ -752,19 +822,26 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                                     decoration: InputDecoration(
                                       hintText: 'Search stocks...',
                                       hintStyle: TextStyle(
-                                        color: _darkMode ? Colors.white70 : Colors.grey[600],
+                                        color: _darkMode
+                                            ? Colors.white70
+                                            : Colors.grey[600],
                                         fontSize: searchFontSize,
                                       ),
                                       border: InputBorder.none,
                                       filled: true,
                                       fillColor: Colors.transparent,
                                       contentPadding: EdgeInsets.symmetric(
-                                        vertical: (searchBarHeight - searchFontSize) / 2 - 4,
+                                        vertical:
+                                            (searchBarHeight - searchFontSize) /
+                                                    2 -
+                                                4,
                                         horizontal: 4,
                                       ),
                                     ),
                                     style: TextStyle(
-                                      color: _darkMode ? Colors.white : Colors.black,
+                                      color: _darkMode
+                                          ? Colors.white
+                                          : Colors.black,
                                       fontSize: searchFontSize,
                                     ),
                                     textInputAction: TextInputAction.search,
@@ -787,19 +864,21 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                                   _isFloatingWindowActive
                                       ? Icons.close_fullscreen
                                       : Icons.open_in_full,
-                                  color: (Platform.isIOS || Platform.isMacOS) 
-                                      ? Colors.grey[400] // Dimmed for unsupported platforms
+                                  color: (Platform.isIOS || Platform.isMacOS)
+                                      ? Colors.grey[
+                                          400] // Dimmed for unsupported platforms
                                       : Colors.grey[600],
                                 ),
                                 iconSize: iconSize,
                                 onPressed: _toggleFloatingWindow,
-                                tooltip: (Platform.isIOS || Platform.isMacOS) 
-                                    ? 'PiP Feature Coming Soon' 
+                                tooltip: (Platform.isIOS || Platform.isMacOS)
+                                    ? 'PiP Feature Coming Soon'
                                     : 'Toggle Picture-in-Picture Mode',
                               ),
                               IconButton(
                                 iconSize: iconSize,
-                                icon: Icon(Icons.person, color: Colors.grey[600]),
+                                icon:
+                                    Icon(Icons.person, color: Colors.grey[600]),
                                 onPressed: _gotoProfileFilters,
                               ),
                             ],
@@ -808,7 +887,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                       ),
                     ],
                   ),
-                  
                 ],
               ),
               backgroundColor: _darkMode ? Colors.black : null,
