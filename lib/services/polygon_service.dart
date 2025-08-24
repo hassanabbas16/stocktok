@@ -22,11 +22,9 @@ class PolygonService {
   static Map<String, String>? _symbolNameMap;
   static Future<Map<String, String>> _loadSymbolNameMap() async {
     if (_symbolNameMap != null) return _symbolNameMap!;
-    print('--- Loading symbol_name_map.json ...');
     final jsonStr = await rootBundle.loadString('assets/symbol_name_map.json');
     final Map<String, dynamic> raw = json.decode(jsonStr);
     _symbolNameMap = raw.map((k, v) => MapEntry(k, v.toString()));
-    print('--- Loaded symbol_name_map.json with ${_symbolNameMap!.length} entries.');
     return _symbolNameMap!;
   }
 
@@ -43,16 +41,13 @@ class PolygonService {
   }) async {
     // If we've exceeded maxRetries, just return empty or throw.
     if (attempts >= maxRetries) {
-      print('--- fetchTwoDaysCombined: exceeded max retries; returning empty.');
       return {};
     }
 
-    print('--- fetchTwoDaysCombined($day1, $day2), attempt $attempts ...');
 
     try {
       final Map<String, StockData> combined = {};
       final symbolNameMap = await _loadSymbolNameMap();
-      print('--- Starting cache build for stocks and crypto...');
 
       // 1) Stocks day1/day2
       final day1stocks = await _fetchGroupedData(
@@ -60,7 +55,6 @@ class PolygonService {
       final day2stocks = await _fetchGroupedData(
           dateStr: day2, isCrypto: false, symbolNameMap: symbolNameMap);
 
-      int stockCount = 0;
       for (final sym in day2stocks.keys) {
         final d2 = day2stocks[sym]!;
         final d1 = day1stocks[sym];
@@ -83,11 +77,7 @@ class PolygonService {
           absoluteChange: absChange,
           percentChange: pct,
         );
-        stockCount++;
-        if (stockCount % 1000 == 0)
-          print('--- Mapped $stockCount stocks so far...');
       }
-      print('--- Finished mapping stocks: $stockCount');
 
       // 2) Crypto day1/day2
       final day1crypto = await _fetchGroupedData(
@@ -95,7 +85,6 @@ class PolygonService {
       final day2crypto = await _fetchGroupedData(
           dateStr: day2, isCrypto: true, symbolNameMap: symbolNameMap);
 
-      int cryptoCount = 0;
       for (final sym in day2crypto.keys) {
         final d2 = day2crypto[sym]!;
         final d1 = day1crypto[sym];
@@ -127,21 +116,11 @@ class PolygonService {
           absoluteChange: absChange,
           percentChange: pct,
         );
-        cryptoCount++;
-        if (cryptoCount % 500 == 0)
-          print('--- Mapped $cryptoCount crypto so far...');
       }
-      print('--- Finished mapping crypto: $cryptoCount');
-
-      print(
-          '--- fetchTwoDaysCombined($day1, $day2) => total ${combined.length} symbols.');
-      print('--- Polygon cache build complete.');
       return combined;
     } catch (e) {
       // If we caught a 403 from ANY of the four fetches above, we do a rollback
       if (e is PolygonForbiddenException) {
-        print(
-            '--- [403] encountered, rolling back day1/day2 by 1 day and retrying...');
         final newDay1 = _decrementDateString(day1);
         final newDay2 = _decrementDateString(day2);
         return fetchTwoDaysCombined(
@@ -166,14 +145,11 @@ class PolygonService {
     final market = isCrypto ? 'crypto' : 'stocks';
     final locale = isCrypto ? 'global' : 'us';
 
-    // Just to confirm the key is correct:
-    print('*** Using Polygon key = $_polygonApiKey ***');
 
     final url = Uri.parse(
       'https://api.polygon.io/v2/aggs/grouped/locale/$locale/market/$market/$dateStr'
       '?adjusted=true&apiKey=$_polygonApiKey',
     );
-    print('--- _fetchGroupedData => GET $url');
 
     final results = <String, StockData>{};
 
@@ -214,23 +190,15 @@ class PolygonService {
               percentChange: 0,
             );
           }
-          print(
-              '--- _fetchGroupedData($dateStr, isCrypto=$isCrypto): got ${results.length} symbols.');
-        } else {
-          print(
-              '--- _fetchGroupedData($dateStr, isCrypto=$isCrypto): no valid "results" in JSON, raw response: ${resp.body}');
-        }
+  }
       } else {
         // If 403 => we throw so that fetchTwoDaysCombined can handle it
         if (resp.statusCode == 403) {
           throw PolygonForbiddenException(
               'HTTP 403 from $url \n Body: ${resp.body}');
         }
-        print(
-            '--- _fetchGroupedData($dateStr, isCrypto=$isCrypto): HTTP ${resp.statusCode}, body:\n${resp.body}\n');
       }
     } catch (e) {
-      print('--- _fetchGroupedData($dateStr, isCrypto=$isCrypto): error $e');
       rethrow; // rethrow so the caller can handle it
     }
 
