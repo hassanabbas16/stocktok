@@ -55,6 +55,7 @@ flutter:
     - .env
     - assets/logos/
     - assets/icons/
+    - assets/symbol_name_map.json
 
   fonts:
     - family: Roboto
