@@ -26,7 +26,7 @@ class _PipTickerViewState extends State<PipTickerView> with WidgetsBindingObserv
   final ScrollController _scrollController = ScrollController();
   Timer? _scrollTimer;
 
-  static const double _baseScrollSpeed = 2.25; // Base speed
+  static const double _baseScrollSpeed = 1; // Base speed
   static const Duration _scrollInterval = Duration(milliseconds: 10); // Faster interval
 
   final List<String> _liveSegments = [];
