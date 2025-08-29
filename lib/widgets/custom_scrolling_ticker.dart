@@ -28,7 +28,7 @@ class _CustomScrollingTickerState extends State<CustomScrollingTicker> with Widg
   final ScrollController _scrollController = ScrollController();
   Timer? _scrollTimer;
 
-  static const double _baseScrollSpeed = 2.5; // Base speed
+  static const double _baseScrollSpeed = 1.5; // Base speed
   static const Duration _scrollInterval = Duration(milliseconds: 10); // Faster interval
 
   final List<String> _liveSegments = [];
