@@ -17,13 +17,4 @@ import UIKit
     
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
-  
-  // iOS-specific status bar handling
-  override var preferredStatusBarStyle: UIStatusBarStyle {
-    return .default
-  }
-  
-  override var prefersStatusBarHidden: Bool {
-    return false
-  }
 }

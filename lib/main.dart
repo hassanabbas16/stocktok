@@ -4,22 +4,27 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:overlay_support/overlay_support.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
+
 import 'services/data_repository.dart';
 import 'services/twelve_data_service.dart';
-
-import 'app.dart';
 import 'services/floating_window_service.dart';
+import 'app.dart';
+
+// <-- import the generated options from `flutterfire configure`
+import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize .env
+  // .env
   await dotenv.load(fileName: ".env");
 
-  // Firebase
-  await Firebase.initializeApp();
+  // Firebase (use options so macOS/iOS/Android all work)
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
-  // Floating window / background service
+  // Local notifications + background service (Android ticker only)
   await FloatingWindowService.initialize();
 
   TwelveDataService.initQueueProcessor();

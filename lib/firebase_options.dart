@@ -28,10 +28,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for windows - '
@@ -65,4 +62,14 @@ class DefaultFirebaseOptions {
     storageBucket: 'stock-tok.firebasestorage.app',
     iosBundleId: 'com.example.stocktok',
   );
+
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyD2a2RIcWka4FyO_GTGuL2LU4Z0c-XlaiE',
+    appId: '1:45009812067:ios:00339538aa8a5a613d1656',
+    messagingSenderId: '45009812067',
+    projectId: 'stock-tok',
+    storageBucket: 'stock-tok.firebasestorage.app',
+    iosBundleId: 'com.example.stocktok',
+  );
+
 }
