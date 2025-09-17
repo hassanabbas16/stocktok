@@ -76,6 +76,7 @@ class _AuthPageState extends State<AuthPage> {
           errorMessage = 'Unexpected error occurred. Please try again.';
         }
       }
+      print('Login error: $e');
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(errorMessage)),

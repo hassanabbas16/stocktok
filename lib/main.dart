@@ -20,9 +20,16 @@ Future<void> main() async {
   await dotenv.load(fileName: ".env");
 
   // Firebase (use options so macOS/iOS/Android all work)
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  try {
+    print('Initializing Firebase...');
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    print('Firebase initialized');
+  } catch (e, st) {
+    print('Firebase initialize error: $e');
+    print(st);
+  }
 
   // Local notifications + background service (Android ticker only)
   await FloatingWindowService.initialize();
